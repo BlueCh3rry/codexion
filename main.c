@@ -18,7 +18,7 @@
 int create_thread(int c)
 {
     pthread_create()
-    return ;
+    return 0;
 }
 
 

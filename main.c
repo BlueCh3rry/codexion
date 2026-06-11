@@ -10,22 +10,30 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#include <unistd.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <unistd.h>
+#include <stdlib.h>
 
+pthread_mutex_t mutex;
 
-int create_thread(int c)
-{
-    pthread_create()
-    return 0;
+void* test_func(void* arg) {
+    pthread_mutex_lock(&mutex);
+    printf("Hello from the new thread!\n");
+    pthread_mutex_unlock(&mutex);
+    return NULL;
 }
 
-
-
-int main(int argc, char **argv)
+int main()
 {
-    if (argc > 8)
-        return 1;
+    printf("\n===Codexion===\n\n");
+    pthread_t thid;
+    void *ret;
+    thid = malloc(sizeof(pthread_t) * 1);
+    
+    pthread_create(&thid, NULL, test_func, NULL);
+    pthread_join(thid, &ret);
+
+    printf("thread exited with '%p'\n", ret);
     return 0;
 }

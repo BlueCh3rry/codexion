@@ -2,7 +2,7 @@ NAME = Codex
 
 all:
 	gcc -pthread main.c -o $(NAME)
-	./$(NAME) 5 20 15 50 100 2 500 fifo
+	./$(NAME) 5 400 200 200 1 5 1 fifo
 
 clean:
 	rm -rf $(NAME)

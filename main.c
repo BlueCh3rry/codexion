@@ -10,96 +10,15 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#include <stdio.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/time.h>
-
-typedef struct dongle
-{
-    pthread_mutex_t mutex;
-}	t_d;
-
-typedef struct coder
-{
-    int id;
-    long last_compile_start;
-
-	t_data      *data;
-
-    t_d *left;
-    t_d *right;
-
-	pthread_t c_thread;
-    pthread_t thread;
-}	t_c;
-
-typedef struct data
-{
-	long start_time;
-	unsigned int number_of_coders;
-	unsigned int time_to_burnout;
-	unsigned int time_to_compile;
-	unsigned int time_to_debug;
-	unsigned int time_to_refactor;
-	unsigned int number_of_compiles_required;
-	unsigned int dongle_cooldown;
-	char *scheduler;
-
-    t_c *coders;
-    t_d *dongles;
-
-    pthread_mutex_t log_mutex;
-}	t_data;
-
-size_t	ft_strlcpy(char *dst, const char *src)
-{
-	unsigned int	i;
-	unsigned int	j;
-
-	i = 0;
-	j = strlen(src);
-	while (src[i] != '\0')
-	{
-		dst[i] = src[i];
-		i++;
-	}
-	dst[i] = '\0';
-	return (j);
-}
-
-int check_sched(char *s)
-{
-    return (!strcmp(s, "fifo") || !strcmp(s, "edf"));
-}
-
-long	current_time_ms(void)
-{
-    struct timeval tv;
-
-    gettimeofday(&tv, NULL);
-    return (tv.tv_sec * 1000L) + (tv.tv_usec / 1000L);
-}
-
-void	log_state(t_data *data, int id, char *msg)
-{
-	pthread_mutex_lock(&data->log_mutex);
-	printf("%ld %d %s\n",
-		current_time_ms() - data->start_time,
-		id,
-		msg);
-	pthread_mutex_unlock(&data->log_mutex);
-}
+#include "codexion.h"
 
 void	*coder_chrono(void *arg)
 {
-	t_c *coder;
-	int count;
+	t_c	*coder;
+	int	count;
 
 	count = 0;
-    coder = (t_c *)arg;
+	coder = (t_c *)arg;
 	while (1)
 	{
 		if (coder->last_compile_start != NULL)
@@ -114,14 +33,13 @@ void	*coder_chrono(void *arg)
 			exit(0);
 		}
 	}
-	
 }
 
 void	*coder_routine(void *arg)
 {
-	t_c *coder;
+	t_c	*coder;
 
-    coder = (t_c *)arg;
+	coder = (t_c *)arg;
 	if (coder->left && coder->right)
 	{
 		pthread_mutex_lock(&coder->left->mutex);
@@ -137,7 +55,7 @@ void	*coder_routine(void *arg)
 	usleep(&coder->data->time_to_debug);
 	log_state(&coder->data->start_time, coder->id, "is refactoring");
 	usleep(&coder->data->time_to_refactor);
-
+	/*
 	if (!strcmp(coder->data->scheduler, "edf"))
 	{
 		long deadline = coder->last_compile_start + coder->data->time_to_burnout;
@@ -148,25 +66,26 @@ void	*coder_routine(void *arg)
 			return (NULL);
 		}
 	}
+	*/
 	return (NULL);
 }
 
 int	main(int argc, char **argv)
 {
+	t_c				*coders;
+	t_d				*dongles;
+	t_data			data;
+	void			*ret;
+	void			*ret2;
+	int				i;
+	long			start;
+
 	if (argc != 9)
 	{
 		printf("Error arg");
 		return (0);
 	}
 	printf("\n===Codexion===\n\n");
-
-	t_c				*coders;
-	t_d				*dongles;
-	t_data			data;
-	void			*ret;
-	int				i;
-	long			start;
-
 	if (atoi(argv[1]) <= 0)
 	{
 		printf("Error [1] number of coders is under 1");
@@ -226,9 +145,7 @@ int	main(int argc, char **argv)
 		return (0);
 	}
 	ft_strlcpy(data.scheduler, argv[8]);
-
 	// Program starts here ##############################
-
 	coders = malloc(sizeof(t_c) * data.number_of_coders);
 	dongles = malloc(sizeof(t_d) * data.number_of_coders);
 	i = 0;
@@ -237,13 +154,14 @@ int	main(int argc, char **argv)
 	{
 		coders[i].id = i;
 		coders[i].data = &data;
-    	pthread_create(&coders[i].thread, NULL, coder_routine, &coders[i]);
+		pthread_create(&coders[i].thread, NULL, coder_routine, &coders[i]);
 		pthread_create(&coders[i].c_thread, NULL, coder_chrono, &coders[i]);
 		i++;
 	}
 	while (i >= 0)
 	{
 		pthread_join(&coders[i].thread, &ret);
+		pthread_join(&coders[i].c_thread, &ret2);
 		i--;
 	}
 	printf("thread exited with '%p'\n", ret);

@@ -14,22 +14,22 @@
 
 void	*coder_chrono(void *arg)
 {
-	t_c	*coder;
+	t_c				*coder;
 	int	count;
 
 	count = 0;
 	coder = (t_c *)arg;
 	while (1)
 	{
-		if (coder->last_compile_start != NULL)
+		if (coder->last_compile_start != 0)
 		{
 			while (count < coder->data->time_to_burnout)
 			{
 				count++;
-				if (coder->last_compile_start == NULL)
+				if (coder->last_compile_start == 0)
 					return (NULL);
 			}
-			log_state(&coder->data->start_time, coder->id, "burned out");
+			log_state(coder->data, coder->id, "burned out");
 			exit(0);
 		}
 	}
@@ -43,18 +43,18 @@ void	*coder_routine(void *arg)
 	if (coder->left && coder->right)
 	{
 		pthread_mutex_lock(&coder->left->mutex);
-		log_state(&coder->data->start_time, coder->id, "has taken a dongle");
-		usleep(&coder->data->dongle_cooldown);
+		log_state(coder->data, coder->id, "has taken a dongle");
+		usleep(coder->data->dongle_cooldown);
 		pthread_mutex_lock(&coder->right->mutex);
-		log_state(&coder->data->start_time, coder->id, "has taken a dongle");
+		log_state(coder->data, coder->id, "has taken a dongle");
 	}
-	log_state(&coder->data->start_time, coder->id, "is compiling");
+	log_state(coder->data, coder->id, "is compiling");
 	coder->last_compile_start = current_time_ms();
-	usleep(&coder->data->time_to_compile);
-	log_state(&coder->data->start_time, coder->id, "is debugging");
-	usleep(&coder->data->time_to_debug);
-	log_state(&coder->data->start_time, coder->id, "is refactoring");
-	usleep(&coder->data->time_to_refactor);
+	usleep(coder->data->time_to_compile);
+	log_state(coder->data, coder->id, "is debugging");
+	usleep(coder->data->time_to_debug);
+	log_state(coder->data, coder->id, "is refactoring");
+	usleep(coder->data->time_to_refactor);
 	/*
 	if (!strcmp(coder->data->scheduler, "edf"))
 	{
@@ -62,7 +62,7 @@ void	*coder_routine(void *arg)
 		if (current_time_ms() - coder->last_compile_start == deadline)
 		{
 			usleep(&coder->data->time_to_burnout);
-			log_state(&coder->data->start_time, coder->id, "burned out");
+			log_state(coder->data, coder->id, "burned out");
 			return (NULL);
 		}
 	}
@@ -78,7 +78,7 @@ int	main(int argc, char **argv)
 	void			*ret;
 	void			*ret2;
 	int				i;
-	long			start;
+	int 			last;
 
 	if (argc != 9)
 	{
@@ -148,8 +148,31 @@ int	main(int argc, char **argv)
 	// Program starts here ##############################
 	coders = malloc(sizeof(t_c) * data.number_of_coders);
 	dongles = malloc(sizeof(t_d) * data.number_of_coders);
-	i = 0;
+	i = 1;
 	data.start_time = current_time_ms();
+	while (i <= data.number_of_coders)
+	{
+		dongles[i].taken = 0;
+		dongles[i].id = i;
+		i++;
+	}
+	i = 1;
+	while (i <= data.number_of_coders)
+	{
+		if (dongles[i].taken == 0)
+		{
+			dongles[i].taken = 1;
+			coders[i].left = &dongles[i];
+		}
+		last = data.number_of_coders - (i - 1);
+		if (dongles[last].taken == 0)
+		{
+			dongles[last].taken = 1;
+			coders[i].right = &dongles[last];
+		}
+		i++;
+	}
+	i = 1;
 	while (i <= data.number_of_coders)
 	{
 		coders[i].id = i;
@@ -160,8 +183,8 @@ int	main(int argc, char **argv)
 	}
 	while (i >= 0)
 	{
-		pthread_join(&coders[i].thread, &ret);
-		pthread_join(&coders[i].c_thread, &ret2);
+		pthread_join(coders[i].thread, &ret);
+		pthread_join(coders[i].c_thread, &ret2);
 		i--;
 	}
 	printf("thread exited with '%p'\n", ret);

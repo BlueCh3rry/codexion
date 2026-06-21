@@ -12,26 +12,24 @@
 
 NAME = libftcodexion.a
 
-CFLAGS = -Wall -Wextra -Werror -Ilibft 
+SOURCES = utils.c \
+		main.c
+
+OBJECTS = $(SOURCES:.c=.o)
+
+CFLAGS = -Wall -Wextra -Werror 
 
 all: $(NAME)
 
 $(NAME): $(OBJECTS)
-	make -C $(LIBFT)
-	ar rcs $(NAME) $^ $(LIBFT_A)
-	gcc -pthread main.c -o codex
+	gcc -pthread $(OBJECTS) -o codex
 	./codex 5 400 200 200 1 5 1 fifo
 
-%.o: %.c
-	gcc $(CFLAGS) -c $< -o $@
-
 clean:
-	make clean -C $(LIBFT)
-	rm -rf push_swap
+	rm -rf codex
 	rm -f $(OBJECTS)
 
 fclean: clean
-	make fclean -C $(LIBFT)
 	rm -f $(NAME)
 
 re: fclean all

@@ -22,8 +22,30 @@
 
 typedef struct dongle
 {
+	int						id;
+	int						taken;
+
 	pthread_mutex_t			mutex;
 }	t_d;
+
+typedef struct data
+{
+	long					start_time;
+	int						number_of_coders;
+	int						time_to_burnout;
+	int						time_to_compile;
+	int						time_to_debug;
+	int						time_to_refactor;
+	int						number_of_compiles_required;
+	int						dongle_cooldown;
+	char					*scheduler;
+
+	// t_c						*coders;
+	// t_d						*dongles;
+
+	pthread_mutex_t			log_mutex;
+}	t_data;
+
 
 typedef struct coder
 {
@@ -39,24 +61,6 @@ typedef struct coder
 	pthread_t				c_thread;
 	pthread_t				thread;
 }	t_c;
-
-typedef struct data
-{
-	long					start_time;
-	unsigned int			number_of_coders;
-	unsigned int			time_to_burnout;
-	unsigned int			time_to_compile;
-	unsigned int			time_to_debug;
-	unsigned int			time_to_refactor;
-	unsigned int			number_of_compiles_required;
-	unsigned int			dongle_cooldown;
-	char					*scheduler;
-
-	t_c						*coders;
-	t_d						*dongles;
-
-	pthread_mutex_t			log_mutex;
-}	t_data;
 
 void				*coder_routine(void *arg);
 void				*coder_routine(void *arg);

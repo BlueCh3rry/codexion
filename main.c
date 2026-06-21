@@ -32,6 +32,7 @@ typedef struct coder
     t_d *left;
     t_d *right;
 
+	pthread_t c_thread;
     pthread_t thread;
 }	t_c;
 
@@ -45,7 +46,7 @@ typedef struct data
 	unsigned int time_to_refactor;
 	unsigned int number_of_compiles_required;
 	unsigned int dongle_cooldown;
-	char			*scheduler;
+	char *scheduler;
 
     t_c *coders;
     t_d *dongles;
@@ -92,6 +93,30 @@ void	log_state(t_data *data, int id, char *msg)
 	pthread_mutex_unlock(&data->log_mutex);
 }
 
+void	*coder_chrono(void *arg)
+{
+	t_c *coder;
+	int count;
+
+	count = 0;
+    coder = (t_c *)arg;
+	while (1)
+	{
+		if (coder->last_compile_start != NULL)
+		{
+			while (count < coder->data->time_to_burnout)
+			{
+				count++;
+				if (coder->last_compile_start == NULL)
+					return (NULL);
+			}
+			log_state(&coder->data->start_time, coder->id, "burned out");
+			exit(0);
+		}
+	}
+	
+}
+
 void	*coder_routine(void *arg)
 {
 	t_c *coder;
@@ -120,7 +145,7 @@ void	*coder_routine(void *arg)
 		{
 			usleep(&coder->data->time_to_burnout);
 			log_state(&coder->data->start_time, coder->id, "burned out");
-			exit(0);
+			return (NULL);
 		}
 	}
 	return (NULL);
@@ -213,6 +238,7 @@ int	main(int argc, char **argv)
 		coders[i].id = i;
 		coders[i].data = &data;
     	pthread_create(&coders[i].thread, NULL, coder_routine, &coders[i]);
+		pthread_create(&coders[i].c_thread, NULL, coder_chrono, &coders[i]);
 		i++;
 	}
 	while (i >= 0)

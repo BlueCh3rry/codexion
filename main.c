@@ -15,7 +15,7 @@
 void	*coder_chrono(void *arg)
 {
 	t_c				*coder;
-	int	count;
+	int				count;
 
 	count = 0;
 	coder = (t_c *)arg;
@@ -47,14 +47,16 @@ void	*coder_routine(void *arg)
 		usleep(coder->data->dongle_cooldown);
 		pthread_mutex_lock(&coder->right->mutex);
 		log_state(coder->data, coder->id, "has taken a dongle");
+		log_state(coder->data, coder->id, "is compiling");
+		coder->last_compile_start = current_time_ms();
+		usleep(coder->data->time_to_compile);
+		pthread_create(&coder->c_thread, NULL, coder_chrono, &coder);
 	}
-	log_state(coder->data, coder->id, "is compiling");
-	coder->last_compile_start = current_time_ms();
-	usleep(coder->data->time_to_compile);
 	log_state(coder->data, coder->id, "is debugging");
 	usleep(coder->data->time_to_debug);
 	log_state(coder->data, coder->id, "is refactoring");
 	usleep(coder->data->time_to_refactor);
+	
 	/*
 	if (!strcmp(coder->data->scheduler, "edf"))
 	{
@@ -184,7 +186,6 @@ int	main(int argc, char **argv)
 	while (i >= 0)
 	{
 		pthread_join(coders[i].thread, &ret);
-		pthread_join(coders[i].c_thread, &ret2);
 		i--;
 	}
 	printf("thread exited with '%p'\n", ret);

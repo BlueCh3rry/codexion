@@ -17,12 +17,12 @@ SOURCES = utils.c \
 
 OBJECTS = $(SOURCES:.c=.o)
 
-CFLAGS = -Wall -Wextra -Werror 
+CFLAGS = -Wall -Wextra -Werror -pthread
 
 all: $(NAME)
 
 $(NAME): $(OBJECTS)
-	gcc -pthread $(OBJECTS) -o codex
+	gcc $(CFLAGS) $(SOURCES) -o codex
 	./codex 5 400 200 200 1 5 1 fifo
 
 clean:

@@ -14,49 +14,70 @@
 
 void	*coder_chrono(void *arg)
 {
+	t_data			*data;
 	t_c				*coder;
-	int				count;
+	long			count;
+	int				i;
 
 	count = 0;
-	coder = (t_c *)arg;
+	i = 0;
+	data = (t_data *)arg;
 	while (1)
 	{
-		if (coder->last_compile_start != 0)
+		while (data->coders[i])
 		{
-			while (count < coder->data->time_to_burnout)
+			coder = data->coders[i];
+			if (coder->last_compile_start != 0)
 			{
-				count++;
-				if (coder->last_compile_start == 0)
-					return (NULL);
+				while (count < data->time_to_burnout)
+				{
+					count++;
+					if (count >= data->time_to_burnout)
+					{
+						log_state(data, coder->id, "burned out");
+						exit(0);
+					}
+				}
+				count = 0;
 			}
-			log_state(coder->data, coder->id, "burned out");
-			exit(0);
+			i = (i + 1) % data->number_of_coders; 
 		}
 	}
 }
 
 void	*coder_routine(void *arg)
 {
-	t_c	*coder;
+	t_data	*data;
+	t_c		*coder;
 
-	coder = (t_c *)arg;
+	data = (t_data *)arg;
 	if (coder->left && coder->right)
 	{
 		pthread_mutex_lock(&coder->left->mutex);
-		log_state(coder->data, coder->id, "has taken a dongle");
+		log_state(data, coder->id, "has taken a dongle");
 		usleep(coder->data->dongle_cooldown);
 		pthread_mutex_lock(&coder->right->mutex);
 		log_state(coder->data, coder->id, "has taken a dongle");
 		log_state(coder->data, coder->id, "is compiling");
 		coder->last_compile_start = current_time_ms();
 		usleep(coder->data->time_to_compile);
-		pthread_create(&coder->c_thread, NULL, coder_chrono, &coder);
+	}
+	else if (!coder->left && coder->right)
+	{
+		
+	}
+	else if (coder->left && !coder->right)
+	{
+		
+	}
+	else
+	{
+		
 	}
 	log_state(coder->data, coder->id, "is debugging");
 	usleep(coder->data->time_to_debug);
 	log_state(coder->data, coder->id, "is refactoring");
 	usleep(coder->data->time_to_refactor);
-	
 	/*
 	if (!strcmp(coder->data->scheduler, "edf"))
 	{
@@ -78,7 +99,6 @@ int	main(int argc, char **argv)
 	t_d				*dongles;
 	t_data			data;
 	void			*ret;
-	void			*ret2;
 	int				i;
 	int 			last;
 
@@ -150,6 +170,7 @@ int	main(int argc, char **argv)
 	// Program starts here ##############################
 	coders = malloc(sizeof(t_c) * data.number_of_coders);
 	dongles = malloc(sizeof(t_d) * data.number_of_coders);
+	data.dongles = dongles;
 	i = 1;
 	data.start_time = current_time_ms();
 	while (i <= data.number_of_coders)
@@ -175,12 +196,11 @@ int	main(int argc, char **argv)
 		i++;
 	}
 	i = 1;
+	pthread_create(&data.c_thread, NULL, coder_chrono, &data);
 	while (i <= data.number_of_coders)
 	{
 		coders[i].id = i;
-		coders[i].data = &data;
-		pthread_create(&coders[i].thread, NULL, coder_routine, &coders[i]);
-		pthread_create(&coders[i].c_thread, NULL, coder_chrono, &coders[i]);
+		pthread_create(&data.coders[i].thread, NULL, coder_routine, &data.coders[i]);
 		i++;
 	}
 	while (i >= 0)

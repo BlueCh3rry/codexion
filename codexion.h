@@ -28,6 +28,18 @@ typedef struct dongle
 	pthread_mutex_t			mutex;
 }	t_d;
 
+typedef struct coder
+{
+	int						id;
+
+	long					last_compile_start;
+
+	t_d						*left;
+	t_d						*right;
+
+	pthread_t				thread;
+}	t_c;
+
 typedef struct data
 {
 	long					start_time;
@@ -40,27 +52,12 @@ typedef struct data
 	int						dongle_cooldown;
 	char					*scheduler;
 
-	// t_c						*coders;
-	// t_d						*dongles;
-
-	pthread_mutex_t			log_mutex;
-}	t_data;
-
-
-typedef struct coder
-{
-	int						id;
-
-	long					last_compile_start;
-
-	t_data					*data;
-
-	t_d						*left;
-	t_d						*right;
+	t_c						*coders;
+	t_d						*dongles;
 
 	pthread_t				c_thread;
-	pthread_t				thread;
-}	t_c;
+	pthread_mutex_t			log_mutex;
+}	t_data;
 
 void				*coder_routine(void *arg);
 void				*coder_routine(void *arg);

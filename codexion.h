@@ -20,6 +20,8 @@
 # include <string.h>
 # include <sys/time.h>
 
+typedef struct data t_data;
+
 typedef struct dongle
 {
 	int						id;
@@ -31,6 +33,7 @@ typedef struct dongle
 typedef struct coder
 {
 	int						id;
+	int						done;
 
 	long					last_compile_start;
 
@@ -38,11 +41,14 @@ typedef struct coder
 	t_d						*right;
 
 	pthread_t				thread;
+
+	struct data *data;
 }	t_c;
 
 typedef struct data
 {
 	long					start_time;
+
 	int						number_of_coders;
 	int						time_to_burnout;
 	int						time_to_compile;
@@ -50,12 +56,14 @@ typedef struct data
 	int						time_to_refactor;
 	int						number_of_compiles_required;
 	int						dongle_cooldown;
+
 	char					*scheduler;
 
 	t_c						*coders;
 	t_d						*dongles;
 
 	pthread_t				c_thread;
+
 	pthread_mutex_t			log_mutex;
 }	t_data;
 

@@ -16,52 +16,51 @@ void	*coder_chrono(void *arg)
 {
 	t_data			*data;
 	t_c				*coder;
-	long			count;
 	int				i;
+	long 			start;
 
-	count = 0;
 	i = 0;
 	data = (t_data *)arg;
 	while (1)
 	{
-		while (data->coders[i])
+		while (&data->coders[i].done == 0 && i < data->number_of_coders)
 		{
-			coder = data->coders[i];
+			coder = &data->coders[i];
 			if (coder->last_compile_start != 0)
 			{
-				while (count < data->time_to_burnout)
-				{
-					count++;
-					if (count >= data->time_to_burnout)
-					{
-						log_state(data, coder->id, "burned out");
-						exit(0);
-					}
-				}
-				count = 0;
+				start = coder->last_compile_start;
+				if (current_time_ms() - start >= data->time_to_burnout)
+					log_state(data, coder->id, "burned out");
 			}
-			i = (i + 1) % data->number_of_coders; 
+			i++;
 		}
+		i %= data->number_of_coders; 
 	}
+}
+
+void	compile(t_c *cod)
+{
+	t_c		*coder;
+
+	coder = cod;
+	if (coder->left->id < coder->right->id)
+		pthread_mutex_lock(&coder->left->mutex);
+	log_state(coder->data, coder->id, "has taken a dongle");
+	usleep(coder->data->dongle_cooldown);
+	pthread_mutex_lock(&coder->right->mutex);
+	log_state(coder->data, coder->id, "has taken a dongle");
+	log_state(coder->data, coder->id, "is compiling");
+	coder->last_compile_start = current_time_ms();
+	usleep(coder->data->time_to_compile);
 }
 
 void	*coder_routine(void *arg)
 {
-	t_data	*data;
 	t_c		*coder;
 
-	data = (t_data *)arg;
+	coder = (t_c *)arg;
 	if (coder->left && coder->right)
-	{
-		pthread_mutex_lock(&coder->left->mutex);
-		log_state(data, coder->id, "has taken a dongle");
-		usleep(coder->data->dongle_cooldown);
-		pthread_mutex_lock(&coder->right->mutex);
-		log_state(coder->data, coder->id, "has taken a dongle");
-		log_state(coder->data, coder->id, "is compiling");
-		coder->last_compile_start = current_time_ms();
-		usleep(coder->data->time_to_compile);
-	}
+		compile(coder);
 	else if (!coder->left && coder->right)
 	{
 		
@@ -74,6 +73,10 @@ void	*coder_routine(void *arg)
 	{
 		
 	}
+	// if (!strcmp(coder->data->scheduler, "edf"))
+	// 	pthread_cond_broadcast(&cond);
+	// else
+	// 	pthread_cond_signal(&cond);
 	log_state(coder->data, coder->id, "is debugging");
 	usleep(coder->data->time_to_debug);
 	log_state(coder->data, coder->id, "is refactoring");
@@ -171,23 +174,24 @@ int	main(int argc, char **argv)
 	coders = malloc(sizeof(t_c) * data.number_of_coders);
 	dongles = malloc(sizeof(t_d) * data.number_of_coders);
 	data.dongles = dongles;
-	i = 1;
+	data.coders = coders;
+	i = 0;
 	data.start_time = current_time_ms();
-	while (i <= data.number_of_coders)
+	while (i < data.number_of_coders)
 	{
 		dongles[i].taken = 0;
-		dongles[i].id = i;
+		dongles[i].id = i + 1;
 		i++;
 	}
-	i = 1;
-	while (i <= data.number_of_coders)
+	i = 0;
+	while (i < data.number_of_coders)
 	{
 		if (dongles[i].taken == 0)
 		{
 			dongles[i].taken = 1;
 			coders[i].left = &dongles[i];
 		}
-		last = data.number_of_coders - (i - 1);
+		last = data.number_of_coders - (i + 1);
 		if (dongles[last].taken == 0)
 		{
 			dongles[last].taken = 1;
@@ -195,15 +199,17 @@ int	main(int argc, char **argv)
 		}
 		i++;
 	}
-	i = 1;
+	i = 0;
 	pthread_create(&data.c_thread, NULL, coder_chrono, &data);
-	while (i <= data.number_of_coders)
+	while (i < data.number_of_coders)
 	{
-		coders[i].id = i;
+		coders[i].last_compile_start = 0;
+		coders[i].id = i + 1;
+		coders[i].done = 0;
 		pthread_create(&data.coders[i].thread, NULL, coder_routine, &data.coders[i]);
 		i++;
 	}
-	while (i >= 0)
+	while (i > 0)
 	{
 		pthread_join(coders[i].thread, &ret);
 		i--;

@@ -44,14 +44,28 @@ void	compile(t_c *cod)
 
 	coder = cod;
 	if (coder->left->id < coder->right->id)
+	{
 		pthread_mutex_lock(&coder->left->mutex);
-	log_state(coder->data, coder->id, "has taken a dongle");
-	usleep(coder->data->dongle_cooldown);
-	pthread_mutex_lock(&coder->right->mutex);
-	log_state(coder->data, coder->id, "has taken a dongle");
+		log_state(coder->data, coder->id, "has taken a dongle");
+		usleep(coder->data->dongle_cooldown);
+		pthread_mutex_lock(&coder->right->mutex);
+		log_state(coder->data, coder->id, "has taken a dongle");
+	}
+	else
+	{
+		pthread_mutex_lock(&coder->right->mutex);
+		log_state(coder->data, coder->id, "has taken a dongle");
+		usleep(coder->data->dongle_cooldown);
+		pthread_mutex_lock(&coder->left->mutex);
+		log_state(coder->data, coder->id, "has taken a dongle");
+	}
 	log_state(coder->data, coder->id, "is compiling");
 	coder->last_compile_start = current_time_ms();
 	usleep(coder->data->time_to_compile);
+	pthread_mutex_unlock(&coder->left->mutex);
+	coder->left->taken = 0;
+	pthread_mutex_unlock(&coder->right->mutex);
+	coder->right->taken = 0;
 }
 
 void	*coder_routine(void *arg)
@@ -60,23 +74,22 @@ void	*coder_routine(void *arg)
 
 	coder = (t_c *)arg;
 	if (coder->left && coder->right)
-		compile(coder);
+	{
+		// wait
+	}
 	else if (!coder->left && coder->right)
 	{
-		
+		// wait
 	}
 	else if (coder->left && !coder->right)
 	{
-		
+		// wait
 	}
+	compile(coder);
+	if (!strcmp(coder->data->scheduler, "edf"))
+		pthread_cond_broadcast(&coder->data->cond_thread);
 	else
-	{
-		
-	}
-	// if (!strcmp(coder->data->scheduler, "edf"))
-	// 	pthread_cond_broadcast(&cond);
-	// else
-	// 	pthread_cond_signal(&cond);
+		pthread_cond_signal(&coder->data->cond_thread);
 	log_state(coder->data, coder->id, "is debugging");
 	usleep(coder->data->time_to_debug);
 	log_state(coder->data, coder->id, "is refactoring");

@@ -64,6 +64,8 @@ typedef struct data
 
 	pthread_t				c_thread;
 
+	pthread_cond_t			cond_thread;
+
 	pthread_mutex_t			log_mutex;
 }	t_data;
 

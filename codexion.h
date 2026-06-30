@@ -42,7 +42,7 @@ typedef struct coder
 
 	pthread_t				thread;
 
-	struct data *data;
+	struct data 			*data;
 }	t_c;
 
 typedef struct data
@@ -66,6 +66,7 @@ typedef struct data
 
 	pthread_cond_t			cond_thread;
 
+	pthread_mutex_t			cond_mutex;
 	pthread_mutex_t			log_mutex;
 }	t_data;
 

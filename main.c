@@ -23,7 +23,7 @@ void	*coder_chrono(void *arg)
 	data = (t_data *)arg;
 	while (1)
 	{
-		while (&data->coders[i].done == 0 && i < data->number_of_coders)
+		while (data->coders[i].done == 0 && i < data->number_of_coders)
 		{
 			coder = &data->coders[i];
 			if (coder->last_compile_start != 0)
@@ -36,6 +36,13 @@ void	*coder_chrono(void *arg)
 		}
 		i %= data->number_of_coders; 
 	}
+}
+
+int coder_can_compile(t_c *coder)
+{
+	if (coder->left && coder->right)
+		return (0);
+	return (1);
 }
 
 void	compile(t_c *cod)
@@ -68,44 +75,26 @@ void	compile(t_c *cod)
 	coder->right->taken = 0;
 }
 
-void	*coder_routine(void *arg)
+void    *coder_routine(void *arg)
 {
-	t_c		*coder;
+	t_c *coder;
 
 	coder = (t_c *)arg;
-	if (coder->left && coder->right)
-	{
-		// wait
-	}
-	else if (!coder->left && coder->right)
-	{
-		// wait
-	}
-	else if (coder->left && !coder->right)
-	{
-		// wait
-	}
+	pthread_mutex_lock(&coder->data->cond_mutex);
+	while (!coder_can_compile(coder))
+		pthread_cond_wait(&coder->data->cond_thread, &coder->data->cond_mutex);
+	pthread_mutex_unlock(&coder->data->cond_mutex);
 	compile(coder);
+	pthread_mutex_lock(&coder->data->cond_mutex);
 	if (!strcmp(coder->data->scheduler, "edf"))
 		pthread_cond_broadcast(&coder->data->cond_thread);
 	else
 		pthread_cond_signal(&coder->data->cond_thread);
+	pthread_mutex_unlock(&coder->data->cond_mutex);
 	log_state(coder->data, coder->id, "is debugging");
 	usleep(coder->data->time_to_debug);
 	log_state(coder->data, coder->id, "is refactoring");
 	usleep(coder->data->time_to_refactor);
-	/*
-	if (!strcmp(coder->data->scheduler, "edf"))
-	{
-		long deadline = coder->last_compile_start + coder->data->time_to_burnout;
-		if (current_time_ms() - coder->last_compile_start == deadline)
-		{
-			usleep(&coder->data->time_to_burnout);
-			log_state(coder->data, coder->id, "burned out");
-			return (NULL);
-		}
-	}
-	*/
 	return (NULL);
 }
 

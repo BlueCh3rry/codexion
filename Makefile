@@ -17,13 +17,13 @@ SOURCES = utils.c \
 
 OBJECTS = $(SOURCES:.c=.o)
 
-CFLAGS = -Wall -Wextra -Werror -pthread
+CFLAGS = -Wall -Wextra -Werror -pthread -g
 
 all: $(NAME)
 
 $(NAME): $(OBJECTS)
 	gcc $(CFLAGS) $(SOURCES) -o codex
-	./codex 5 400 200 200 1 5 1 fifo
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./codex 5 400 200 200 1 2 1 fifo
 
 clean:
 	rm -rf codex

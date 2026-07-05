@@ -44,9 +44,6 @@ long	current_time_ms(void)
 void	log_state(t_data *data, int id, char *msg)
 {
 	pthread_mutex_lock(&data->log_mutex);
-	printf("%ld %d %s\n",
-		current_time_ms() - data->start_time,
-		id,
-		msg);
+	printf("%ld %d %s\n", current_time_ms() - data->start_time, id, msg);
 	pthread_mutex_unlock(&data->log_mutex);
 }

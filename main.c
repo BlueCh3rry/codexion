@@ -23,7 +23,7 @@ void	*coder_chrono(void *arg)
 	data = (t_data *)arg;
 	while (1)
 	{
-		while (data->coders[i].done == 0 && i < data->number_of_coders)
+		while (i < data->number_of_coders)
 		{
 			coder = &data->coders[i];
 			if (coder->last_compile_start != 0)
@@ -34,27 +34,25 @@ void	*coder_chrono(void *arg)
 			}
 			i++;
 		}
-		i %= data->number_of_coders; 
+		i %= data->number_of_coders;
 	}
-}
-
-int coder_can_compile(t_c *coder)
-{
-	if (coder->left && coder->right)
-		return (0);
-	return (1);
 }
 
 void	compile(t_c *cod)
 {
 	t_c		*coder;
-
+	long	cd;
 	coder = cod;
+	
+	// printf("number=%d coder=%p left=%p right=%p\n",
+	// 	coder->id,
+	// 	(void *)coder,
+	// 	(void *)coder->left,
+	// 	(void *)coder->right);
 	if (coder->left->id < coder->right->id)
 	{
 		pthread_mutex_lock(&coder->left->mutex);
 		log_state(coder->data, coder->id, "has taken a dongle");
-		usleep(coder->data->dongle_cooldown);
 		pthread_mutex_lock(&coder->right->mutex);
 		log_state(coder->data, coder->id, "has taken a dongle");
 	}
@@ -62,7 +60,6 @@ void	compile(t_c *cod)
 	{
 		pthread_mutex_lock(&coder->right->mutex);
 		log_state(coder->data, coder->id, "has taken a dongle");
-		usleep(coder->data->dongle_cooldown);
 		pthread_mutex_lock(&coder->left->mutex);
 		log_state(coder->data, coder->id, "has taken a dongle");
 	}
@@ -70,9 +67,16 @@ void	compile(t_c *cod)
 	coder->last_compile_start = current_time_ms();
 	usleep(coder->data->time_to_compile);
 	pthread_mutex_unlock(&coder->left->mutex);
-	coder->left->taken = 0;
 	pthread_mutex_unlock(&coder->right->mutex);
-	coder->right->taken = 0;
+	cd = coder->data->dongle_cooldown;
+	coder->data->dongles->available_at = current_time_ms() + cd;
+}
+
+int coder_can_compile(t_c *coder)
+{
+	if (coder->left && coder->right)
+		return (1);
+	return (0);
 }
 
 void    *coder_routine(void *arg)
@@ -82,7 +86,11 @@ void    *coder_routine(void *arg)
 	coder = (t_c *)arg;
 	pthread_mutex_lock(&coder->data->cond_mutex);
 	while (!coder_can_compile(coder))
+	{
 		pthread_cond_wait(&coder->data->cond_thread, &coder->data->cond_mutex);
+		while (current_time_ms() < coder->left->available_at)
+			usleep(1);
+	}
 	pthread_mutex_unlock(&coder->data->cond_mutex);
 	compile(coder);
 	pthread_mutex_lock(&coder->data->cond_mutex);
@@ -105,7 +113,7 @@ int	main(int argc, char **argv)
 	t_data			data;
 	void			*ret;
 	int				i;
-	int 			last;
+	int				j;
 
 	if (argc != 9)
 	{
@@ -115,48 +123,48 @@ int	main(int argc, char **argv)
 	printf("\n===Codexion===\n\n");
 	if (atoi(argv[1]) <= 0)
 	{
-		printf("Error [1] number of coders is under 1");
+		printf("Error [1] number of coders is under 1\n");
 		return (0);
 	}
 	data.number_of_coders = atoi(argv[1]);
 	if (atoi(argv[2]) <= 0)
 	{
-		printf("Error [2] time to burnout is under 1");
+		printf("Error [2] time to burnout is under 1\n");
 		return (0);
 	}
 	data.time_to_burnout = atoi(argv[2]) * 1000;
 	if (atoi(argv[3]) <= 0)
 	{
-		printf("Error [3] time to compile is under 1");
+		printf("Error [3] time to compile is under 1\n");
 		return (0);
 	}
 	data.time_to_compile = atoi(argv[3]) * 1000;
 	if (atoi(argv[4]) <= 0)
 	{
-		printf("Error [4] time to debug is under 1");
+		printf("Error [4] time to debug is under 1\n");
 		return (0);
 	}
 	data.time_to_debug = atoi(argv[4]) * 1000;
 	if (atoi(argv[5]) <= 0)
 	{
-		printf("Error [5] time to refactor is under 1");
+		printf("Error [5] time to refactor is under 1\n");
 		return (0);
 	}
 	data.time_to_refactor = atoi(argv[5]) * 1000;
 	if (atoi(argv[6]) <= 0)
 	{
-		printf("Error [6] number of compiles required is UNDER 1");
+		printf("Error [6] number of compiles required is UNDER 1\n");
 		return (0);
 	}
 	else if (atoi(argv[6]) > data.number_of_coders)
 	{
-		printf("Error [6] number of compiles required is ABOVE the number of coders");
+		printf("Error [6] number of compiles required is ABOVE the number of coders\n");
 		return (0);
 	}
 	data.number_of_compiles_required = atoi(argv[6]);
 	if (atoi(argv[7]) < 0)
 	{
-		printf("Error [7] dongle cooldown is under 0");
+		printf("Error [7] dongle cooldown is under 0\n");
 		return (0);
 	}
 	data.dongle_cooldown = atoi(argv[7]) * 1000;
@@ -168,7 +176,7 @@ int	main(int argc, char **argv)
 	data.scheduler = malloc(strlen(argv[8]) + 1);
 	if (!data.scheduler)
 	{
-		printf("Error malloc scheduler");
+		printf("Error malloc scheduler\n");
 		return (0);
 	}
 	ft_strlcpy(data.scheduler, argv[8]);
@@ -178,43 +186,45 @@ int	main(int argc, char **argv)
 	data.dongles = dongles;
 	data.coders = coders;
 	i = 0;
+	pthread_cond_init(&data.cond_thread, NULL);
+	pthread_mutex_init(&data.log_mutex, NULL);
+	pthread_mutex_init(&data.cond_mutex, NULL);
 	data.start_time = current_time_ms();
 	while (i < data.number_of_coders)
 	{
-		dongles[i].taken = 0;
 		dongles[i].id = i + 1;
+		pthread_mutex_init(&dongles[i].mutex, NULL);
 		i++;
 	}
 	i = 0;
 	while (i < data.number_of_coders)
 	{
-		if (dongles[i].taken == 0)
-		{
-			dongles[i].taken = 1;
-			coders[i].left = &dongles[i];
-		}
-		last = data.number_of_coders - (i + 1);
-		if (dongles[last].taken == 0)
-		{
-			dongles[last].taken = 1;
-			coders[i].right = &dongles[last];
-		}
+		coders[i].left  = &dongles[i];
+		coders[i].right = &dongles[(i + 1) % data.number_of_coders];
 		i++;
 	}
 	i = 0;
 	pthread_create(&data.c_thread, NULL, coder_chrono, &data);
+	j = 0;
+	while (j < data.number_of_compiles_required)
+	{
+		i = 0;
+		while (i < data.number_of_coders)
+		{
+			coders[i].last_compile_start = 0;
+			coders[i].id = i + 1;
+			coders[i].data = &data;
+			pthread_create(&data.coders[i].thread, NULL, coder_routine, &data.coders[i]);
+			i++;
+		}
+		j++;
+	}
+	i = 0;
 	while (i < data.number_of_coders)
 	{
-		coders[i].last_compile_start = 0;
-		coders[i].id = i + 1;
-		coders[i].done = 0;
-		pthread_create(&data.coders[i].thread, NULL, coder_routine, &data.coders[i]);
-		i++;
-	}
-	while (i > 0)
-	{
 		pthread_join(coders[i].thread, &ret);
-		i--;
+		pthread_mutex_destroy(&dongles[i].mutex);
+		i++;
 	}
 	printf("thread exited with '%p'\n", ret);
 	free(data.scheduler);

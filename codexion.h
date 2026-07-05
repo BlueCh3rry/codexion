@@ -25,7 +25,8 @@ typedef struct data t_data;
 typedef struct dongle
 {
 	int						id;
-	int						taken;
+
+	long					available_at;
 
 	pthread_mutex_t			mutex;
 }	t_d;
@@ -33,7 +34,6 @@ typedef struct dongle
 typedef struct coder
 {
 	int						id;
-	int						done;
 
 	long					last_compile_start;
 

@@ -12,38 +12,63 @@
 
 #include "codexion.h"
 
+void	cleanup(t_data *data)
+{
+	int		i;
+
+	i = 0;
+	printf("CLEAN UP\n");
+	while (i < data->number_of_coders)
+	{
+		pthread_join(data->coders[i].thread, NULL);
+		pthread_mutex_destroy(&data->dongles[i].mutex);
+		i++;
+	}
+	pthread_cond_destroy(&data->cond_thread);
+	pthread_mutex_destroy(&data->cond_mutex);
+	pthread_mutex_destroy(&data->log_mutex);
+	printf("END\n");
+	free(data->scheduler);
+	free(data->coders);
+	free(data->dongles);
+}
+
 void	*coder_chrono(void *arg)
 {
-	t_data			*data;
-	t_c				*coder;
-	int				i;
-	long 			start;
+	t_data	*data;
+	t_c		*coder;
+	int		i;
+	long	start;
 
 	i = 0;
 	data = (t_data *)arg;
-	while (1)
+	while (data->done != 1)
 	{
+		i = 0;
 		while (i < data->number_of_coders)
 		{
 			coder = &data->coders[i];
 			if (coder->last_compile_start != 0)
 			{
 				start = coder->last_compile_start;
-				if (current_time_ms() - start >= data->time_to_burnout)
-					log_state(data, coder->id, "burned out");
+				if (current_time_ms() - start >= data->time_to_burnout / 1000)
+				{
+					log_state(data, coder->id, "burned ouuuuuuuuuuuuuuuuuuuuuuuuuuuut");
+					cleanup(data);
+				}
 			}
 			i++;
+			usleep(1);
 		}
-		i %= data->number_of_coders;
+		usleep(1);
 	}
+	return (NULL);
 }
 
-void	compile(t_c *cod)
+void	compile(t_c *coder)
 {
-	t_c		*coder;
 	long	cd;
-	coder = cod;
-	
+
 	// printf("number=%d coder=%p left=%p right=%p\n",
 	// 	coder->id,
 	// 	(void *)coder,
@@ -66,6 +91,7 @@ void	compile(t_c *cod)
 	log_state(coder->data, coder->id, "is compiling");
 	coder->last_compile_start = current_time_ms();
 	usleep(coder->data->time_to_compile);
+	coder->last_compile_start = 0;
 	pthread_mutex_unlock(&coder->left->mutex);
 	pthread_mutex_unlock(&coder->right->mutex);
 	cd = coder->data->dongle_cooldown;
@@ -82,27 +108,32 @@ int coder_can_compile(t_c *coder)
 void    *coder_routine(void *arg)
 {
 	t_c *coder;
+	int j;
 
 	coder = (t_c *)arg;
-	pthread_mutex_lock(&coder->data->cond_mutex);
-	while (!coder_can_compile(coder))
-	{
-		pthread_cond_wait(&coder->data->cond_thread, &coder->data->cond_mutex);
-		while (current_time_ms() < coder->left->available_at)
-			usleep(1);
+	j = 0;
+	while (j < coder->data->number_of_compiles_required && coder->data->done != 1)
+	{	
+		pthread_mutex_lock(&coder->data->cond_mutex);
+		while (!coder_can_compile(coder))
+		{
+			pthread_cond_wait(&coder->data->cond_thread, &coder->data->cond_mutex);
+		}
+		pthread_mutex_unlock(&coder->data->cond_mutex);
+		compile(coder);
+		pthread_mutex_lock(&coder->data->cond_mutex);
+		if (!strcmp(coder->data->scheduler, "edf"))
+			pthread_cond_broadcast(&coder->data->cond_thread);
+		else
+			pthread_cond_signal(&coder->data->cond_thread);
+		pthread_mutex_unlock(&coder->data->cond_mutex);
+		log_state(coder->data, coder->id, "is debugging");
+		usleep(coder->data->time_to_debug);
+		log_state(coder->data, coder->id, "is refactoring");
+		usleep(coder->data->time_to_refactor);
+		j++;
+		usleep(1);
 	}
-	pthread_mutex_unlock(&coder->data->cond_mutex);
-	compile(coder);
-	pthread_mutex_lock(&coder->data->cond_mutex);
-	if (!strcmp(coder->data->scheduler, "edf"))
-		pthread_cond_broadcast(&coder->data->cond_thread);
-	else
-		pthread_cond_signal(&coder->data->cond_thread);
-	pthread_mutex_unlock(&coder->data->cond_mutex);
-	log_state(coder->data, coder->id, "is debugging");
-	usleep(coder->data->time_to_debug);
-	log_state(coder->data, coder->id, "is refactoring");
-	usleep(coder->data->time_to_refactor);
 	return (NULL);
 }
 
@@ -111,9 +142,7 @@ int	main(int argc, char **argv)
 	t_c				*coders;
 	t_d				*dongles;
 	t_data			data;
-	void			*ret;
 	int				i;
-	int				j;
 
 	if (argc != 9)
 	{
@@ -181,14 +210,25 @@ int	main(int argc, char **argv)
 	}
 	ft_strlcpy(data.scheduler, argv[8]);
 	// Program starts here ##############################
+
 	coders = malloc(sizeof(t_c) * data.number_of_coders);
+	if (!coders)
+	{
+		printf("Error malloc coders\n");
+		return (free(data.scheduler), 0);
+	}
 	dongles = malloc(sizeof(t_d) * data.number_of_coders);
+	if (!dongles)
+	{
+		printf("Error malloc dongles\n");
+		return (free(data.scheduler), free(coders), 0);
+	}
 	data.dongles = dongles;
 	data.coders = coders;
-	i = 0;
 	pthread_cond_init(&data.cond_thread, NULL);
 	pthread_mutex_init(&data.log_mutex, NULL);
 	pthread_mutex_init(&data.cond_mutex, NULL);
+	i = 0;
 	data.start_time = current_time_ms();
 	while (i < data.number_of_coders)
 	{
@@ -205,30 +245,29 @@ int	main(int argc, char **argv)
 	}
 	i = 0;
 	pthread_create(&data.c_thread, NULL, coder_chrono, &data);
-	j = 0;
-	while (j < data.number_of_compiles_required)
-	{
-		i = 0;
-		while (i < data.number_of_coders)
-		{
-			coders[i].last_compile_start = 0;
-			coders[i].id = i + 1;
-			coders[i].data = &data;
-			pthread_create(&data.coders[i].thread, NULL, coder_routine, &data.coders[i]);
-			i++;
-		}
-		j++;
-	}
 	i = 0;
 	while (i < data.number_of_coders)
 	{
-		pthread_join(coders[i].thread, &ret);
-		pthread_mutex_destroy(&dongles[i].mutex);
+		coders[i].last_compile_start = 0;
+		coders[i].id = i + 1;
+		coders[i].data = &data;
+		pthread_create(&data.coders[i].thread, NULL, coder_routine, &data.coders[i]);
 		i++;
 	}
-	printf("thread exited with '%p'\n", ret);
+	while (i < data.number_of_coders)
+	{
+		pthread_join(data.coders[i].thread, NULL);
+		pthread_mutex_destroy(&data.dongles[i].mutex);
+		i++;
+	}
+	pthread_join(data.c_thread, NULL);
+	data.done = 1;
+	pthread_cond_destroy(&data.cond_thread);
+	pthread_mutex_destroy(&data.cond_mutex);
+	pthread_mutex_destroy(&data.log_mutex);
+	printf("END\n");
 	free(data.scheduler);
-	free(coders);
-	free(dongles);
+	free(data.coders);
+	free(data.dongles);
 	return (0);
 }

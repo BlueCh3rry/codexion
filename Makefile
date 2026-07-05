@@ -23,10 +23,18 @@ all: $(NAME)
 
 $(NAME): $(OBJECTS)
 	gcc $(CFLAGS) $(SOURCES) -o codex
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./codex 5 400 200 200 1 2 1 fifo
+	./codex 5 10 200 200 1 2 1 fifo
 
+leak:
+	gcc $(CFLAGS) $(SOURCES) -o codex
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./leakcodex 5 400 200 200 1 1 1 fifo
+
+helgrind:
+	gcc $(CFLAGS) $(SOURCES) -o codex
+	valgrind --tool=helgrind ./leakcodex 5 400 200 200 1 1 1 fifo
 clean:
 	rm -rf codex
+	rm -rf leakcodex
 	rm -f $(OBJECTS)
 
 fclean: clean
@@ -34,4 +42,4 @@ fclean: clean
 
 re: fclean all
 
-.PHONY: all clean fclean re
+.PHONY: all clean fclean re leak

@@ -12,55 +12,63 @@
 
 #include "codexion.h"
 
-void	cleanup(t_data *data)
+void ft_signal(t_data *data)
 {
-	int		i;
-
-	i = 0;
-	printf("CLEAN UP\n");
-	while (i < data->number_of_coders)
-	{
-		pthread_join(data->coders[i].thread, NULL);
-		pthread_mutex_destroy(&data->dongles[i].mutex);
-		i++;
-	}
-	pthread_cond_destroy(&data->cond_thread);
-	pthread_mutex_destroy(&data->cond_mutex);
-	pthread_mutex_destroy(&data->log_mutex);
-	printf("END\n");
-	free(data->scheduler);
-	free(data->coders);
-	free(data->dongles);
+    // pthread_mutex_lock(&data->state_mutex);
+    data->signal_count++;
+    pthread_cond_broadcast(&data->cond_thread);
+    // pthread_mutex_unlock(&data->state_mutex);
 }
+
+// void	clean_up(t_data *data)
+// {
+// 	int i;
+
+// 	i = 0;
+// 	while (i < data->number_of_coders)
+// 	{
+// 		pthread_join(data->coders[data->number_of_coders].thread, NULL);
+// 		pthread_mutex_destroy(&data->dongles[data->number_of_coders].mutex);
+// 		i++;
+// 	}
+// 	pthread_cond_destroy(&data->cond_thread);
+// 	pthread_mutex_destroy(&data->log_mutex);
+// 	printf("ENeD\n");
+// 	free(data->scheduler);
+// 	free(data->coders);
+// 	free(data->dongles);
+// 	exit(0);
+// }
 
 void	*coder_chrono(void *arg)
 {
 	t_data	*data;
-	t_c		*coder;
 	int		i;
-	long	start;
 
-	i = 0;
 	data = (t_data *)arg;
-	while (data->done != 1)
+	while (1)
 	{
+		pthread_mutex_lock(&data->state_mutex);
+		if (data->done)
+		{
+			pthread_mutex_unlock(&data->state_mutex);
+			break;
+		}
 		i = 0;
 		while (i < data->number_of_coders)
 		{
-			coder = &data->coders[i];
-			if (coder->last_compile_start != 0)
+			if (data->coders[i].last_compile_start != 0 &&
+				current_time_ms() - data->coders[i].last_compile_start >= data->time_to_burnout / 1000)
 			{
-				start = coder->last_compile_start;
-				if (current_time_ms() - start >= data->time_to_burnout / 1000)
-				{
-					log_state(data, coder->id, "burned ouuuuuuuuuuuuuuuuuuuuuuuuuuuut");
-					cleanup(data);
-				}
+				log_state(data, data->coders[i].id, "burned ouuuuuuuuuuuuuuuuuuuuuuuuuuuut");
+				data->done = 1;
+				// pthread_cond_broadcast(&data->cond_thread);
+				pthread_mutex_unlock(&data->state_mutex);
+				return (NULL);
 			}
 			i++;
-			usleep(1);
 		}
-		usleep(1);
+		pthread_mutex_unlock(&data->state_mutex);
 	}
 	return (NULL);
 }
@@ -89,20 +97,45 @@ void	compile(t_c *coder)
 		log_state(coder->data, coder->id, "has taken a dongle");
 	}
 	log_state(coder->data, coder->id, "is compiling");
+	pthread_mutex_lock(&coder->data->state_mutex);
 	coder->last_compile_start = current_time_ms();
-	usleep(coder->data->time_to_compile);
+	pthread_mutex_unlock(&coder->data->state_mutex);
+	// usleep(coder->data->time_to_compile);
+	while (current_time_ms() - coder->last_compile_start < coder->data->time_to_compile / 1000)
+	{
+		pthread_mutex_lock(&coder->data->state_mutex);
+		if (coder->data->done)
+		{
+			// pthread_mutex_unlock(&coder->data->state_mutex);
+			// pthread_mutex_unlock(&coder->left->mutex);
+			// pthread_mutex_unlock(&coder->right->mutex);
+			// clean_up(coder->data);
+			exit(0);
+			// return;
+		}
+		pthread_mutex_unlock(&coder->data->state_mutex);
+	}
+	pthread_mutex_lock(&coder->data->state_mutex);
 	coder->last_compile_start = 0;
+	cd = coder->data->dongle_cooldown;
+	coder->left->available_at = current_time_ms() - coder->data->start_time + cd;
+	coder->right->available_at = current_time_ms() - coder->data->start_time + cd;
+	pthread_mutex_unlock(&coder->data->state_mutex);
 	pthread_mutex_unlock(&coder->left->mutex);
 	pthread_mutex_unlock(&coder->right->mutex);
-	cd = coder->data->dongle_cooldown;
-	coder->data->dongles->available_at = current_time_ms() + cd;
 }
 
 int coder_can_compile(t_c *coder)
 {
-	if (coder->left && coder->right)
-		return (1);
-	return (0);
+    long now;
+
+	now = current_time_ms() - coder->data->start_time;
+	// printf("NOW =%ld\nGOAL =%ld\n", now, coder->left->available_at);
+	if (coder->left->available_at > 0 && now >= coder->left->available_at)
+		return (0);
+	if (coder->right->available_at > 0 && now >= coder->right->available_at)
+        return (0);
+    return (1);
 }
 
 void    *coder_routine(void *arg)
@@ -112,27 +145,34 @@ void    *coder_routine(void *arg)
 
 	coder = (t_c *)arg;
 	j = 0;
-	while (j < coder->data->number_of_compiles_required && coder->data->done != 1)
+	while (j < coder->data->number_of_compiles_required)
 	{	
-		pthread_mutex_lock(&coder->data->cond_mutex);
-		while (!coder_can_compile(coder))
+		pthread_mutex_lock(&coder->data->state_mutex);
+		while (coder_can_compile(coder) == 0 && coder->data->done == 0)
+			pthread_cond_wait(&coder->data->cond_thread, &coder->data->state_mutex);
+		if (coder->data->done)
 		{
-			pthread_cond_wait(&coder->data->cond_thread, &coder->data->cond_mutex);
+			pthread_mutex_unlock(&coder->data->state_mutex);
+			printf("STOP\n");
+			break;
 		}
-		pthread_mutex_unlock(&coder->data->cond_mutex);
+		pthread_mutex_unlock(&coder->data->state_mutex);
 		compile(coder);
-		pthread_mutex_lock(&coder->data->cond_mutex);
+		pthread_mutex_lock(&coder->data->state_mutex);
 		if (!strcmp(coder->data->scheduler, "edf"))
 			pthread_cond_broadcast(&coder->data->cond_thread);
 		else
 			pthread_cond_signal(&coder->data->cond_thread);
-		pthread_mutex_unlock(&coder->data->cond_mutex);
+		// ft_signal(coder->data); A FINIR ICI ########################################################################################################################################################################
+		pthread_mutex_unlock(&coder->data->state_mutex);
 		log_state(coder->data, coder->id, "is debugging");
 		usleep(coder->data->time_to_debug);
 		log_state(coder->data, coder->id, "is refactoring");
 		usleep(coder->data->time_to_refactor);
+		pthread_mutex_lock(&coder->data->state_mutex);
+		// printf("YEP CODER=%d\n", coder->id);
+		pthread_mutex_unlock(&coder->data->state_mutex);
 		j++;
-		usleep(1);
 	}
 	return (NULL);
 }
@@ -227,12 +267,14 @@ int	main(int argc, char **argv)
 	data.coders = coders;
 	pthread_cond_init(&data.cond_thread, NULL);
 	pthread_mutex_init(&data.log_mutex, NULL);
-	pthread_mutex_init(&data.cond_mutex, NULL);
+	pthread_mutex_init(&data.state_mutex, NULL);
+	data.done = 0;
 	i = 0;
 	data.start_time = current_time_ms();
 	while (i < data.number_of_coders)
 	{
 		dongles[i].id = i + 1;
+		dongles[i].available_at = 0;
 		pthread_mutex_init(&dongles[i].mutex, NULL);
 		i++;
 	}
@@ -243,7 +285,6 @@ int	main(int argc, char **argv)
 		coders[i].right = &dongles[(i + 1) % data.number_of_coders];
 		i++;
 	}
-	i = 0;
 	pthread_create(&data.c_thread, NULL, coder_chrono, &data);
 	i = 0;
 	while (i < data.number_of_coders)
@@ -254,16 +295,19 @@ int	main(int argc, char **argv)
 		pthread_create(&data.coders[i].thread, NULL, coder_routine, &data.coders[i]);
 		i++;
 	}
+	i = 0;
 	while (i < data.number_of_coders)
 	{
 		pthread_join(data.coders[i].thread, NULL);
 		pthread_mutex_destroy(&data.dongles[i].mutex);
 		i++;
 	}
-	pthread_join(data.c_thread, NULL);
+	pthread_mutex_lock(&data.state_mutex);
 	data.done = 1;
+	pthread_cond_broadcast(&data.cond_thread);
+	pthread_mutex_unlock(&data.state_mutex);
+	pthread_join(data.c_thread, NULL);
 	pthread_cond_destroy(&data.cond_thread);
-	pthread_mutex_destroy(&data.cond_mutex);
 	pthread_mutex_destroy(&data.log_mutex);
 	printf("END\n");
 	free(data.scheduler);

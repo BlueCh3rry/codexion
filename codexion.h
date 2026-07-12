@@ -57,6 +57,7 @@ typedef struct data
 	int						time_to_refactor;
 	int						number_of_compiles_required;
 	int						dongle_cooldown;
+	int						signal_count;
 
 	char					*scheduler;
 
@@ -67,7 +68,8 @@ typedef struct data
 
 	pthread_cond_t			cond_thread;
 
-	pthread_mutex_t			cond_mutex;
+	pthread_mutex_t			state_mutex;
+	// pthread_mutex_t			cond_mutex;
 	pthread_mutex_t			log_mutex;
 }	t_data;
 

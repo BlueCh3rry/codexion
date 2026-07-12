@@ -13,7 +13,7 @@
 NAME = libftcodexion.a
 
 SOURCES = utils.c \
-		main.c
+		main2.c
 
 OBJECTS = $(SOURCES:.c=.o)
 
@@ -23,15 +23,20 @@ all: $(NAME)
 
 $(NAME): $(OBJECTS)
 	gcc $(CFLAGS) $(SOURCES) -o codex
-	./codex 5 10 200 200 1 2 1 fifo
+	./codex 4 100 200 200 1 1 1 edf
 
 leak:
 	gcc $(CFLAGS) $(SOURCES) -o codex
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./leakcodex 5 400 200 200 1 1 1 fifo
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./codex 4 100 200 200 1 1 1 edf
 
 helgrind:
 	gcc $(CFLAGS) $(SOURCES) -o codex
-	valgrind --tool=helgrind ./leakcodex 5 400 200 200 1 1 1 fifo
+	valgrind --tool=helgrind ./codex 4 100 200 200 1 1 1 edf
+
+fix:
+	gcc $(CFLAGS) $(SOURCES) -o codex
+	./codex 4 100 200 200 1 1 1 edf
+
 clean:
 	rm -rf codex
 	rm -rf leakcodex

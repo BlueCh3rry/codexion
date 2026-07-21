@@ -69,6 +69,8 @@ void	*coder_chrono(void *arg)
 			i++;
 		}
 		pthread_mutex_unlock(&data->state_mutex);
+        // ENLEVE CA POUR PAS CRASH EN LEAK
+		usleep(1);
 	}
 	return (NULL);
 }
@@ -158,11 +160,18 @@ void    *coder_routine(void *arg)
 		}
 		pthread_mutex_unlock(&coder->data->state_mutex);
 		compile(coder);
-		pthread_mutex_lock(&coder->data->state_mutex);
-		if (!strcmp(coder->data->scheduler, "edf"))
-			pthread_cond_broadcast(&coder->data->cond_thread);
-		else
-			pthread_cond_signal(&coder->data->cond_thread);
+        pthread_mutex_lock(&coder->data->state_mutex);
+        if (coder->data->done)
+        {
+            pthread_mutex_unlock(&coder->data->state_mutex);
+            break;
+        }
+        if (!strcmp(coder->data->scheduler, "edf"))
+            pthread_cond_broadcast(&coder->data->cond_thread);
+        else
+            pthread_cond_signal(&coder->data->cond_thread);
+        pthread_mutex_unlock(&coder->data->state_mutex);
+        
 		// ft_signal(coder->data); A FINIR ICI ########################################################################################################################################################################
 		pthread_mutex_unlock(&coder->data->state_mutex);
 		log_state(coder->data, coder->id, "is debugging");

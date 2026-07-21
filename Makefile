@@ -13,7 +13,7 @@
 NAME = libftcodexion.a
 
 SOURCES = utils.c \
-		main2.c
+		main.c
 
 OBJECTS = $(SOURCES:.c=.o)
 
@@ -39,7 +39,6 @@ fix:
 
 clean:
 	rm -rf codex
-	rm -rf leakcodex
 	rm -f $(OBJECTS)
 
 fclean: clean
@@ -48,3 +47,8 @@ fclean: clean
 re: fclean all
 
 .PHONY: all clean fclean re leak
+
+# main.c
+# 1/ diff fifo edf
+# 2/ pourquoi sleep repare le code
+# 3/ helgrind montre les threads/valgrind ne stop pas normal ? 

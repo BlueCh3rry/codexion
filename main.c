@@ -173,7 +173,7 @@ void    *coder_routine(void *arg)
         pthread_mutex_unlock(&coder->data->state_mutex);
         
 		// ft_signal(coder->data); A FINIR ICI ########################################################################################################################################################################
-		pthread_mutex_unlock(&coder->data->state_mutex);
+		// pthread_mutex_unlock(&coder->data->state_mutex);
 		log_state(coder->data, coder->id, "is debugging");
 		usleep(coder->data->time_to_debug);
 		log_state(coder->data, coder->id, "is refactoring");
@@ -298,7 +298,9 @@ int	main(int argc, char **argv)
 	i = 0;
 	while (i < data.number_of_coders)
 	{
+		pthread_mutex_lock(&data.state_mutex);
 		coders[i].last_compile_start = 0;
+		pthread_mutex_unlock(&data.state_mutex);
 		coders[i].id = i + 1;
 		coders[i].data = &data;
 		pthread_create(&data.coders[i].thread, NULL, coder_routine, &data.coders[i]);

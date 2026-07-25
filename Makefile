@@ -39,7 +39,7 @@ fix:
 
 clean:
 	rm -rf codex
-	rm -f $(OBJECTS)
+	rm -f $(OBJECTS) main2.o main.o
 
 fclean: clean
 	rm -f $(NAME)
@@ -50,5 +50,3 @@ re: fclean all
 
 # main.c
 # 1/ diff fifo edf
-# 2/ pourquoi sleep repare le code
-# 3/ helgrind montre les threads/valgrind ne stop pas normal ? 

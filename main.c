@@ -148,7 +148,7 @@ void    *coder_routine(void *arg)
 	coder = (t_c *)arg;
 	j = 0;
 	while (j < coder->data->number_of_compiles_required)
-	{	
+	{ 
 		pthread_mutex_lock(&coder->data->state_mutex);
 		while (coder_can_compile(coder) == 0 && coder->data->done == 0)
 			pthread_cond_wait(&coder->data->cond_thread, &coder->data->state_mutex);
@@ -199,48 +199,48 @@ int	main(int argc, char **argv)
 		return (0);
 	}
 	printf("\n===Codexion===\n\n");
-	if (atoi(argv[1]) <= 0)
+	if (atoi(argv[1]) <= 1)
 	{
 		printf("Error [1] number of coders is under 1\n");
 		return (0);
 	}
 	data.number_of_coders = atoi(argv[1]);
-	if (atoi(argv[2]) <= 0)
+	if (atoi(argv[2]) <= 1)
 	{
 		printf("Error [2] time to burnout is under 1\n");
 		return (0);
 	}
 	data.time_to_burnout = atoi(argv[2]) * 1000;
-	if (atoi(argv[3]) <= 0)
+	if (atoi(argv[3]) <= 1)
 	{
 		printf("Error [3] time to compile is under 1\n");
 		return (0);
 	}
 	data.time_to_compile = atoi(argv[3]) * 1000;
-	if (atoi(argv[4]) <= 0)
+	if (atoi(argv[4]) <= 1)
 	{
 		printf("Error [4] time to debug is under 1\n");
 		return (0);
 	}
 	data.time_to_debug = atoi(argv[4]) * 1000;
-	if (atoi(argv[5]) <= 0)
+	if (atoi(argv[5]) <= 1)
 	{
 		printf("Error [5] time to refactor is under 1\n");
 		return (0);
 	}
 	data.time_to_refactor = atoi(argv[5]) * 1000;
-	if (atoi(argv[6]) <= 0)
+	if (atoi(argv[6]) <= 1)
 	{
 		printf("Error [6] number of compiles required is UNDER 1\n");
 		return (0);
 	}
-	else if (atoi(argv[6]) > data.number_of_coders)
+	else if (atoi(argv[6]) >= data.number_of_coders)
 	{
 		printf("Error [6] number of compiles required is ABOVE the number of coders\n");
 		return (0);
 	}
 	data.number_of_compiles_required = atoi(argv[6]);
-	if (atoi(argv[7]) < 0)
+	if (atoi(argv[7]) <= 1)
 	{
 		printf("Error [7] dongle cooldown is under 0\n");
 		return (0);

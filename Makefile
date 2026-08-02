@@ -23,19 +23,19 @@ all: $(NAME)
 
 $(NAME): $(OBJECTS)
 	gcc $(CFLAGS) $(SOURCES) -o codex
-	./codex 4 100 200 200 1 1 1 edf
+	./codex 4 100 200 200 2 2 2 edf
 
 leak:
 	gcc $(CFLAGS) $(SOURCES) -o codex
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./codex 4 100 200 200 1 1 1 edf
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./codex 4 100 200 200 2 2 2 edf
 
 helgrind:
 	gcc $(CFLAGS) $(SOURCES) -o codex
-	valgrind --tool=helgrind ./codex 4 100 200 200 1 1 1 edf
+	valgrind --tool=helgrind ./codex 4 100 200 200 2 2 2 edf
 
 fix:
 	gcc $(CFLAGS) $(SOURCES) -o codex
-	./codex 4 100 200 200 1 1 1 edf
+	./codex 4 100 200 200 2 2 2 edf
 
 clean:
 	rm -rf codex

@@ -229,7 +229,7 @@ int	main(int argc, char **argv)
 		return (0);
 	}
 	data.time_to_refactor = atoi(argv[5]) * 1000;
-	if (atoi(argv[6]) <= 1)
+	if (atoi(argv[6]) <= 0)
 	{
 		printf("Error [6] number of compiles required is too low\n");
 		return (0);

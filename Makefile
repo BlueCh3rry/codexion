@@ -22,23 +22,23 @@ CFLAGS = -Wall -Wextra -Werror -pthread -g
 all: $(NAME)
 
 $(NAME): $(OBJECTS)
-	gcc $(CFLAGS) $(SOURCES) -o codex
-	./codex 4 100 200 200 2 2 2 edf
+	gcc $(CFLAGS) $(SOURCES) -o codexion
+	./codexion 4 100 200 200 200 1 5 edf
 
 leak:
-	gcc $(CFLAGS) $(SOURCES) -o codex
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./codex 4 100 200 200 2 2 2 edf
+	gcc $(CFLAGS) $(SOURCES) -o codexion
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./codexion 4 100 200 200 200 1 5 edf
 
 helgrind:
-	gcc $(CFLAGS) $(SOURCES) -o codex
-	valgrind --tool=helgrind ./codex 4 100 200 200 2 2 2 edf
+	gcc $(CFLAGS) $(SOURCES) -o codexion
+	valgrind --tool=helgrind ./codexion 4 100 200 200 200 1 5 edf
 
 fix:
-	gcc $(CFLAGS) $(SOURCES) -o codex
-	./codex 4 100 200 200 2 2 2 edf
+	gcc $(CFLAGS) $(SOURCES) -o codexion
+	./codexion 4 100 200 200 200 1 5 edf
 
 clean:
-	rm -rf codex
+	rm -rf codexion
 	rm -f $(OBJECTS) main2.o main.o
 
 fclean: clean
@@ -47,6 +47,3 @@ fclean: clean
 re: fclean all
 
 .PHONY: all clean fclean re leak
-
-# main.c
-# 1/ diff fifo edf

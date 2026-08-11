@@ -49,6 +49,7 @@ typedef struct data
 {
 	long					start_time;
 
+	int						order;
 	int						done;
 	int						number_of_coders;
 	int						time_to_burnout;

@@ -12,14 +12,13 @@
 
 #include "codexion.h"
 
-void ft_signal(t_data *data)
+void    ft_signal(t_data *data)
 {
-    // pthread_mutex_lock(&data->state_mutex);
-    data->signal_count++;
+    data->order++;
+	if (data->order == data->number_of_coders + 1)
+	    data->order = 1;
     pthread_cond_broadcast(&data->cond_thread);
-    // pthread_mutex_unlock(&data->state_mutex);
 }
-
 // void	clean_up(t_data *data)
 // {
 // 	int i;
@@ -150,8 +149,16 @@ void    *coder_routine(void *arg)
 	while (j < coder->data->number_of_compiles_required)
 	{ 
 		pthread_mutex_lock(&coder->data->state_mutex);
-		while (coder_can_compile(coder) == 0 && coder->data->done == 0)
-			pthread_cond_wait(&coder->data->cond_thread, &coder->data->state_mutex);
+		if (!strcmp(coder->data->scheduler, "fifo"))
+		{
+			while (coder->id != coder->data->order && coder->data->done == 0)
+				pthread_cond_wait(&coder->data->cond_thread, &coder->data->state_mutex);
+		}
+		else
+		{
+			while (coder_can_compile(coder) == 0 && coder->data->done == 0)
+				pthread_cond_wait(&coder->data->cond_thread, &coder->data->state_mutex);
+		}
 		if (coder->data->done)
 		{
 			pthread_mutex_unlock(&coder->data->state_mutex);
@@ -162,18 +169,16 @@ void    *coder_routine(void *arg)
 		compile(coder);
         pthread_mutex_lock(&coder->data->state_mutex);
         if (coder->data->done)
-        {
+        {	
             pthread_mutex_unlock(&coder->data->state_mutex);
             break;
         }
         if (!strcmp(coder->data->scheduler, "edf"))
             pthread_cond_broadcast(&coder->data->cond_thread);
         else
-            pthread_cond_signal(&coder->data->cond_thread);
+			ft_signal(coder->data);
         pthread_mutex_unlock(&coder->data->state_mutex);
-        
-		// ft_signal(coder->data); A FINIR ICI ########################################################################################################################################################################
-		// pthread_mutex_unlock(&coder->data->state_mutex);
+
 		log_state(coder->data, coder->id, "is debugging");
 		usleep(coder->data->time_to_debug);
 		log_state(coder->data, coder->id, "is refactoring");
@@ -234,11 +239,11 @@ int	main(int argc, char **argv)
 		printf("Error [6] number of compiles required is too low\n");
 		return (0);
 	}
-	else if (atoi(argv[6]) >= data.number_of_coders)
-	{
-		printf("Error [6] number of compiles required is ABOVE the number of coders\n");
-		return (0);
-	}
+	// else if (atoi(argv[6]) >= data.number_of_coders)
+	// {
+	// 	printf("Error [6] number of compiles required is ABOVE the number of coders\n");
+	// 	return (0);
+	// }
 	data.number_of_compiles_required = atoi(argv[6]);
 	if (atoi(argv[7]) <= 1)
 	{
@@ -273,6 +278,7 @@ int	main(int argc, char **argv)
 		return (free(data.scheduler), free(coders), 0);
 	}
 	data.dongles = dongles;
+	data.order = 1;
 	data.coders = coders;
 	pthread_cond_init(&data.cond_thread, NULL);
 	pthread_mutex_init(&data.log_mutex, NULL);

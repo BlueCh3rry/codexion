@@ -23,7 +23,7 @@ all: $(NAME)
 
 $(NAME): $(OBJECTS)
 	gcc $(CFLAGS) $(SOURCES) -o codexion
-	./codexion 4 1000 200 200 200 4 5 fifo
+	./codexion 250 100 20 200 200 1 5 fifo
 
 leak:
 	gcc $(CFLAGS) $(SOURCES) -o codexion
@@ -31,7 +31,7 @@ leak:
 
 helgrind:
 	gcc $(CFLAGS) $(SOURCES) -o codexion
-	valgrind --tool=helgrind ./codexion 4 1000 200 200 200 1 5 fifo
+	valgrind --tool=helgrind ./codexion 199 100 200 200 200 1 5 fifo
 
 # fix:
 # 	gcc $(CFLAGS) $(SOURCES) -o codexion

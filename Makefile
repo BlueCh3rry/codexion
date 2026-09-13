@@ -23,19 +23,15 @@ all: $(NAME)
 
 $(NAME): $(OBJECTS)
 	gcc $(CFLAGS) $(SOURCES) -o codexion
-	./codexion 250 100 20 200 200 1 5 fifo
+	./codexion 300 100 20 20 20 5 5 edf
 
 leak:
 	gcc $(CFLAGS) $(SOURCES) -o codexion
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./codexion 4 1000 200 200 200 1 5 fifo
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./codexion 300 10 20 20 20 1 5 edf
 
 helgrind:
 	gcc $(CFLAGS) $(SOURCES) -o codexion
-	valgrind --tool=helgrind ./codexion 199 100 200 200 200 1 5 fifo
-
-# fix:
-# 	gcc $(CFLAGS) $(SOURCES) -o codexion
-# 	./codexion 4 100 200 200 200 1 5 fifo
+	valgrind --tool=helgrind ./codexion 300 10 20 20 20 1 5 edf
 
 clean:
 	rm -rf codexion

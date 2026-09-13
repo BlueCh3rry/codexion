@@ -12,7 +12,7 @@
 
 #include "codexion.h"
 
-size_t	ft_strlcpy(char *dst, const char *src)
+size_t	ft_strcpy(char *dst, const char *src)
 {
 	unsigned int	i;
 	unsigned int	j;

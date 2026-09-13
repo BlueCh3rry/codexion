@@ -78,7 +78,7 @@ void				*coder_routine(void *arg);
 void				*coder_routine(void *arg);
 void				log_state(t_data *data, int id, char *msg);
 
-size_t				ft_strlcpy(char *dst, const char *src);
+size_t				ft_strcpy(char *dst, const char *src);
 int					check_sched(char *s);
 long				current_time_ms(void);
 

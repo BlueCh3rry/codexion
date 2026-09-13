@@ -68,7 +68,6 @@ void	*coder_chrono(void *arg)
 			i++;
 		}
 		pthread_mutex_unlock(&data->state_mutex);
-        // ENLEVE CA POUR PAS CRASH EN LEAK
 		usleep(1);
 	}
 	return (NULL);
@@ -183,9 +182,9 @@ void    *coder_routine(void *arg)
 		usleep(coder->data->time_to_debug);
 		log_state(coder->data, coder->id, "is refactoring");
 		usleep(coder->data->time_to_refactor);
-		pthread_mutex_lock(&coder->data->state_mutex);
+		// pthread_mutex_lock(&coder->data->state_mutex);
 		// printf("YEP CODER=%d\n", coder->id);
-		pthread_mutex_unlock(&coder->data->state_mutex);
+		// pthread_mutex_unlock(&coder->data->state_mutex);
 		j++;
 	}
 	return (NULL);
@@ -262,7 +261,7 @@ int	main(int argc, char **argv)
 		printf("Error malloc scheduler\n");
 		return (0);
 	}
-	ft_strlcpy(data.scheduler, argv[8]);
+	ft_strcpy(data.scheduler, argv[8]);
 	// Program starts here ##############################
 
 	coders = malloc(sizeof(t_c) * data.number_of_coders);
@@ -300,15 +299,18 @@ int	main(int argc, char **argv)
 		coders[i].right = &dongles[(i + 1) % data.number_of_coders];
 		i++;
 	}
+	i = 0;
+	while (i < data.number_of_coders)
+	{
+		coders[i].last_compile_start = 0;
+		coders[i].id = i + 1;
+		coders[i].data = &data;
+		i++;
+	}
 	pthread_create(&data.c_thread, NULL, coder_chrono, &data);
 	i = 0;
 	while (i < data.number_of_coders)
 	{
-		pthread_mutex_lock(&data.state_mutex);
-		coders[i].last_compile_start = 0;
-		pthread_mutex_unlock(&data.state_mutex);
-		coders[i].id = i + 1;
-		coders[i].data = &data;
 		pthread_create(&data.coders[i].thread, NULL, coder_routine, &data.coders[i]);
 		i++;
 	}
@@ -316,6 +318,11 @@ int	main(int argc, char **argv)
 	while (i < data.number_of_coders)
 	{
 		pthread_join(data.coders[i].thread, NULL);
+		i++;
+	}
+	i = 0;
+	while (i < data.number_of_coders)
+	{
 		pthread_mutex_destroy(&data.dongles[i].mutex);
 		i++;
 	}

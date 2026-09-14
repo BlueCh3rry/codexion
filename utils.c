@@ -47,3 +47,11 @@ void	log_state(t_data *data, int id, char *msg)
 	printf("%ld %d %s\n", current_time_ms() - data->start_time, id, msg);
 	pthread_mutex_unlock(&data->log_mutex);
 }
+
+void	ft_signal(t_data *data)
+{
+	data->order++;
+	if (data->order == data->number_of_coders + 1)
+		data->order = 1;
+	pthread_cond_broadcast(&data->cond_thread);
+}

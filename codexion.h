@@ -70,16 +70,18 @@ typedef struct data
 	pthread_cond_t			cond_thread;
 
 	pthread_mutex_t			state_mutex;
-	// pthread_mutex_t			cond_mutex;
 	pthread_mutex_t			log_mutex;
 }	t_data;
 
-void				*coder_routine(void *arg);
-void				*coder_routine(void *arg);
-void				log_state(t_data *data, int id, char *msg);
+void                *coder_routine(void *arg);
+void                *coder_chrono(void *arg);
+void                compile(t_c *coder);
+int                 coder_can_compile(t_c *coder);
+void                ft_signal(t_data *data);
+void                log_state(t_data *data, int id, char *msg);
 
-size_t				ft_strcpy(char *dst, const char *src);
-int					check_sched(char *s);
-long				current_time_ms(void);
+size_t              ft_strcpy(char *dst, const char *src);
+int                 check_sched(char *s);
+long                current_time_ms(void);
 
 #endif

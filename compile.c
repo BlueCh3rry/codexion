@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   compile.c                                          :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mmakhmae <marvin@42.fr>                    +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/09/14 17:52:52 by mmakhmae          #+#    #+#             */
+/*   Updated: 2026/09/14 17:52:53 by mmakhmae         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "codexion.h"
 
 static void	take_dongles(t_c *coder)
@@ -20,9 +32,8 @@ static void	take_dongles(t_c *coder)
 
 static void	wait_compile_done(t_c *coder)
 {
-	// usleep(coder->data->time_to_compile);
 	while (current_time_ms() - coder->last_compile_start
-			< coder->data->time_to_compile / 1000)
+		< coder->data->time_to_compile / 1000)
 	{
 		pthread_mutex_lock(&coder->data->state_mutex);
 		if (coder->data->done)
@@ -40,9 +51,9 @@ static void	release_dongles(t_c *coder)
 
 	pthread_mutex_lock(&coder->data->state_mutex);
 	coder->last_compile_start = 0;
-	cd = coder->data->dongle_cooldown;
-	coder->left->available_at = current_time_ms() - coder->data->start_time + cd;
-	coder->right->available_at = current_time_ms() - coder->data->start_time + cd;
+	cd = coder->data->dongle_cooldown + coder->data->start_time;
+	coder->left->available_at = current_time_ms() - cd;
+	coder->right->available_at = current_time_ms() - cd;
 	pthread_mutex_unlock(&coder->data->state_mutex);
 	pthread_mutex_unlock(&coder->left->mutex);
 	pthread_mutex_unlock(&coder->right->mutex);

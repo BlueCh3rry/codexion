@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   coder_routine.c                                    :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mmakhmae <marvin@42.fr>                    +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/09/14 17:52:15 by mmakhmae          #+#    #+#             */
+/*   Updated: 2026/09/14 17:52:16 by mmakhmae         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "codexion.h"
 
 static void	wait_turn(t_c *coder)
@@ -5,12 +17,14 @@ static void	wait_turn(t_c *coder)
 	if (!strcmp(coder->data->scheduler, "fifo"))
 	{
 		while (coder->id != coder->data->order && coder->data->done == 0)
-			pthread_cond_wait(&coder->data->cond_thread, &coder->data->state_mutex);
+			pthread_cond_wait(&coder->data->cond_thread,
+				&coder->data->state_mutex);
 	}
 	else
 	{
 		while (coder_can_compile(coder) == 0 && coder->data->done == 0)
-			pthread_cond_wait(&coder->data->cond_thread, &coder->data->state_mutex);
+			pthread_cond_wait(&coder->data->cond_thread,
+				&coder->data->state_mutex);
 	}
 }
 
@@ -39,12 +53,12 @@ static int	check_done(t_c *coder)
 	}
 	return (0);
 }
- 
+
 void	*coder_routine(void *arg)
 {
 	t_c	*coder;
 	int	j;
- 
+
 	coder = (t_c *)arg;
 	j = 0;
 	while (j < coder->data->number_of_compiles_required)

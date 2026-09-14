@@ -5,20 +5,19 @@
 ## Description
 
 Codexion is a multithreaded simulation inspired by the classic "Dining Philosophers"
-problem, reframed around a team of software coders sharing a limited pool of USB
-dongles (licenses) needed to compile their code. Each coder repeatedly needs to
+problem, reframed around a team of software coders sharing a limited pool of
+dongles needed to compile their code. Each coder repeatedly needs to
 acquire the two dongles adjacent to them, compile, then release the dongles, debug,
 and refactor — for a configured number of cycles.
 
-The goal of the project is to correctly manage concurrent access to shared resources
-(the dongles) using POSIX threads, while:
+The goal of the project is to correctly manage concurrent access to shared resources, while:
 - avoiding deadlocks,
 - avoiding starvation,
 - detecting when a coder has been "burned out" (stuck compiling for too long),
 - producing an accurate, race-free log of every coder's state changes.
 
 Two scheduling strategies are supported:
-- **FIFO** — coders compile strictly in turn order (round-robin).
+- **FIFO** — (First–in First-out) coders compile strictly in turn order.
 - **EDF** (Earliest Deadline First–inspired) — a coder may compile as soon as both
   of its dongles are available again (post-cooldown), independent of turn order.
 
@@ -35,9 +34,12 @@ This builds the `codexion` binary using the project `Makefile`.
 Other available targets:
 
 ```bash
-make clean   # remove object files
-make fclean  # remove object files and the binary
-make re      # fclean + full rebuild
+make clean    # remove object files
+make fclean   # remove object files and the binary
+make re       # fclean + full rebuild
+make run      # run the project
+make leak     # run the project with valgrind option
+make helgrind # run the project with with helgrind tool
 ```
 
 ### Execution
@@ -67,7 +69,7 @@ Example:
 
 ## Blocking cases handled
 
-- **Deadlock prevention (Coffman's conditions)** — Each coder needs its left and
+- **Deadlock prevention** — Each coder needs its left and
   right dongle simultaneously (hold-and-wait). To break the circular-wait condition
   that causes classic Dining Philosophers deadlocks, dongles are always locked in a
   fixed global order: the coder compares `left->id` and `right->id` and always locks
@@ -127,22 +129,15 @@ once (mutual exclusion), the simulation state is always read/written consistentl
 
 ## Resources
 
-- *The Dining Philosophers Problem* — E. W. Dijkstra, classic formulation of the
-  resource-sharing/deadlock problem this project is based on.
+- Documentation & Guides
+- Official 42 subject (push_swap)
+- https://www.geeksforgeeks.org/sorting-algorithms/
 - POSIX Threads Programming (`pthread_mutex_*`, `pthread_cond_*`) — man pages
   (`man pthread_mutex_lock`, `man pthread_cond_wait`, etc.)
-- Coffman's conditions for deadlock (mutual exclusion, hold and wait, no
-  preemption, circular wait) — used as the checklist for the deadlock-avoidance
-  strategy described above.
+- Coffman's conditions for deadlock
 
 ### AI usage
 
 AI (Claude, by Anthropic) was used during this project for:
-- Refactoring existing working code so that every function stays under the 25-line
-  limit, by extracting logic into smaller static helper functions without changing
-  behavior.
 - Reviewing commented-out code to identify which parts were genuinely necessary
-  (e.g. restoring a missing `pthread_cond_broadcast()` call on burnout detection
-  that could otherwise leave threads permanently blocked) versus which were safe to
-  leave as historical/debug comments.
 - Drafting and structuring this README.md file.

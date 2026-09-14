@@ -5,41 +5,48 @@
 #                                                     +:+ +:+         +:+      #
 #    By: mmakhmae <marvin@42.fr>                    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
-#    Created: 2026/06/21 15:19:28 by mmakhmae          #+#    #+#              #
-#    Updated: 2026/06/21 15:19:34 by mmakhmae         ###   ########.fr        #
+#    Created: 2026/09/14 17:51:22 by mmakhmae          #+#    #+#              #
+#    Updated: 2026/09/14 17:51:36 by mmakhmae         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
-NAME = libftcodexion.a
+NAME = codexion
 
 SOURCES = utils.c \
-		main.c
+          chrono.c \
+          compile.c \
+          coder_routine.c \
+		  parser.c \
+          main.c
 
 OBJECTS = $(SOURCES:.c=.o)
 
+CC = cc
 CFLAGS = -Wall -Wextra -Werror -pthread -g
 
 all: $(NAME)
 
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
 $(NAME): $(OBJECTS)
-	gcc $(CFLAGS) $(SOURCES) -o codexion
-	./codexion 300 100 20 20 20 5 5 edf
+	$(CC) $(CFLAGS) $(OBJECTS) -o $(NAME)
 
-leak:
-	gcc $(CFLAGS) $(SOURCES) -o codexion
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./codexion 300 10 20 20 20 1 5 edf
+run: $(NAME)
+	./$(NAME) 99 1000 100 100 100 4 5 fifo
 
-helgrind:
-	gcc $(CFLAGS) $(SOURCES) -o codexion
-	valgrind --tool=helgrind ./codexion 300 10 20 20 20 1 5 edf
+leak: $(NAME)
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(NAME) 300 10 20 20 20 1 5 fifo
+
+helgrind: $(NAME)
+	valgrind --tool=helgrind ./$(NAME) 300 10 20 20 20 1 5 edf
 
 clean:
-	rm -rf codexion
-	rm -f $(OBJECTS) main2.o main.o
+	rm -f $(OBJECTS)
 
 fclean: clean
 	rm -f $(NAME)
 
 re: fclean all
 
-.PHONY: all clean fclean re leak
+.PHONY: all run clean fclean re leak helgrind

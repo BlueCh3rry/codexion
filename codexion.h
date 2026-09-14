@@ -20,7 +20,7 @@
 # include <string.h>
 # include <sys/time.h>
 
-typedef struct data t_data;
+typedef struct data	t_data;
 
 typedef struct dongle
 {
@@ -42,7 +42,7 @@ typedef struct coder
 
 	pthread_t				thread;
 
-	struct data 			*data;
+	struct data				*data;
 }	t_c;
 
 typedef struct data
@@ -73,15 +73,20 @@ typedef struct data
 	pthread_mutex_t			log_mutex;
 }	t_data;
 
-void                *coder_routine(void *arg);
-void                *coder_chrono(void *arg);
-void                compile(t_c *coder);
-int                 coder_can_compile(t_c *coder);
-void                ft_signal(t_data *data);
-void                log_state(t_data *data, int id, char *msg);
+void				*coder_routine(void *arg);
+void				*coder_chrono(void *arg);
+void				compile(t_c *coder);
+int					coder_can_compile(t_c *coder);
+int					parse_args1(char **argv, t_data *data);
+int					parse_args2(char **argv, t_data *data);
+int					init_scheduler(t_data *data, char *sched);
+void				init_dongles(t_data *data);
+void				init_coders(t_data *data);
+void				ft_signal(t_data *data);
+void				log_state(t_data *data, int id, char *msg);
 
-size_t              ft_strcpy(char *dst, const char *src);
-int                 check_sched(char *s);
-long                current_time_ms(void);
+size_t				ft_strcpy(char *dst, const char *src);
+int					check_sched(char *s);
+long				current_time_ms(void);
 
 #endif

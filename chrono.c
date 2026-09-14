@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   chrono.c                                           :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mmakhmae <marvin@42.fr>                    +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/09/14 17:52:03 by mmakhmae          #+#    #+#             */
+/*   Updated: 2026/09/14 17:52:05 by mmakhmae         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "codexion.h"
 
 static int	check_burnout(t_data *data)
@@ -7,9 +19,9 @@ static int	check_burnout(t_data *data)
 	i = 0;
 	while (i < data->number_of_coders)
 	{
-		if (data->coders[i].last_compile_start != 0 &&
-			current_time_ms() - data->coders[i].last_compile_start
-				>= data->time_to_burnout / 1000)
+		if (data->coders[i].last_compile_start != 0
+			&& current_time_ms() - data->coders[i].last_compile_start
+			>= data->time_to_burnout / 1000)
 		{
 			log_state(data, data->coders[i].id, "burned out");
 			data->done = 1;

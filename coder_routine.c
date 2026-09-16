@@ -16,15 +16,22 @@ static void	wait_turn(t_c *coder)
 {
 	if (!strcmp(coder->data->scheduler, "fifo"))
 	{
-		while (coder->id != coder->data->order && coder->data->done == 0)
+		while (coder->id != coder->data->order && coder_can_compile(coder) == 0 && coder->data->done == 0)
+		{
+			printf("sleep COD= %d\n", coder->id);
 			pthread_cond_wait(&coder->data->cond_thread,
 				&coder->data->state_mutex);
+		}
+
 	}
 	else
 	{
 		while (coder_can_compile(coder) == 0 && coder->data->done == 0)
+		{
+			printf("seelp CODY = %d\n", coder->id);
 			pthread_cond_wait(&coder->data->cond_thread,
-				&coder->data->state_mutex);
+				&coder->data->state_mutex);			
+		}
 	}
 }
 
@@ -65,8 +72,13 @@ void	*coder_routine(void *arg)
 	{
 		pthread_mutex_lock(&coder->data->state_mutex);
 		wait_turn(coder);
+		printf("CODY CODY = %d\n", coder->id);
 		if (check_done(coder))
 			break ;
+		if (coder->left->available_at != 0 && coder->left->available_at > coder->right->available_at)
+			sleep(coder->left->available_at + (current_time_ms() - coder->data->start_time));
+		else if (coder->right->available_at != 0 && coder->right->available_at > coder->left->available_at)
+			sleep(coder->right->available_at + (current_time_ms() - coder->data->start_time));
 		pthread_mutex_unlock(&coder->data->state_mutex);
 		compile(coder);
 		pthread_mutex_lock(&coder->data->state_mutex);

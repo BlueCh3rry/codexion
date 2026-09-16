@@ -20,6 +20,7 @@ static void	take_dongles(t_c *coder)
 		log_state(coder->data, coder->id, "has taken a dongle");
 		pthread_mutex_lock(&coder->right->mutex);
 		log_state(coder->data, coder->id, "has taken a dongle");
+
 	}
 	else
 	{
@@ -47,13 +48,14 @@ static void	wait_compile_done(t_c *coder)
 
 static void	release_dongles(t_c *coder)
 {
-	long	cd;
+	long	now;
 
 	pthread_mutex_lock(&coder->data->state_mutex);
 	coder->last_compile_start = 0;
-	cd = coder->data->dongle_cooldown + coder->data->start_time;
-	coder->left->available_at = current_time_ms() - cd;
-	coder->right->available_at = current_time_ms() - cd;
+	now = current_time_ms() - coder->data->start_time;
+	coder->left->available_at = now + coder->data->dongle_cooldown;
+	coder->right->available_at = now + coder->data->dongle_cooldown;
+	printf("now = %ld\nAVA L %d = %ld\nAVA R %d = %ld\n", now, coder->left->id, coder->left->available_at, coder->right->id, coder->right->available_at);
 	pthread_mutex_unlock(&coder->data->state_mutex);
 	pthread_mutex_unlock(&coder->left->mutex);
 	pthread_mutex_unlock(&coder->right->mutex);
@@ -75,9 +77,9 @@ int	coder_can_compile(t_c *coder)
 	long	now;
 
 	now = current_time_ms() - coder->data->start_time;
-	if (coder->left->available_at > 0 && now >= coder->left->available_at)
-		return (0);
-	if (coder->right->available_at > 0 && now >= coder->right->available_at)
-		return (0);
-	return (1);
+	// printf("NOW = %ld\nDongle L %d = %ld\nDongle R %d = %ld\nBOTH = %ld\n", now, coder->left->id, coder->left->available_at, coder->right->id, coder->right->available_at, now + coder->left->available_at);
+	if (coder->left->available_at > 0 && now >= coder->left->available_at && coder->right->available_at > 0 && now >= coder->right->available_at)
+		return (1);
+	// printf("SKIP\n");
+	return (0);
 }

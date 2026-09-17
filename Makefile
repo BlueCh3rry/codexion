@@ -33,7 +33,7 @@ $(NAME): $(OBJECTS)
 	$(CC) $(CFLAGS) $(OBJECTS) -o $(NAME)
 
 run: $(NAME)
-	./$(NAME) 4 1000 100 100 100 1 5000 fifo
+	./$(NAME) 10 1000 100 100 100 2 20 edf
 
 leak: $(NAME)
 	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(NAME) 300 10 20 20 20 1 5 fifo

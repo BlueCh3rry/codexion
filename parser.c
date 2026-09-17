@@ -37,9 +37,9 @@ int	parse_args2(char **argv, t_data *data)
 	if (atoi(argv[6]) <= 0)
 		return (printf("Error [6] number of compiles required low\n"), -1);
 	data->number_of_compiles_required = atoi(argv[6]);
-	if (atoi(argv[7]) <= 1)
-		return (printf("Error [7] dongle cooldown is under 0\n"), -1);
-	data->dongle_cooldown = atoi(argv[7]);
+	if (atoi(argv[7]) <= 0)
+		return (printf("Error [7] dongle cooldown is low\n"), -1);
+	data->dongle_cooldown = atoi(argv[7]) * 1000;
 	if (!check_sched(argv[8]))
 		return (printf("Error [8] scheduler is neither fifo nor edf\n"), -1);
 	return (0);

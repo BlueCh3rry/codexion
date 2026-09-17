@@ -16,19 +16,16 @@ static void	wait_turn(t_c *coder)
 {
 	if (!strcmp(coder->data->scheduler, "fifo"))
 	{
-		while (coder->id != coder->data->order && coder_can_compile(coder) == 0 && coder->data->done == 0)
+		while (coder->id != coder->data->order && coder_can_compile(coder) == 1 && coder->data->done == 0)
 		{
-			printf("sleep COD= %d\n", coder->id);
 			pthread_cond_wait(&coder->data->cond_thread,
 				&coder->data->state_mutex);
 		}
-
 	}
 	else
 	{
 		while (coder_can_compile(coder) == 0 && coder->data->done == 0)
 		{
-			printf("seelp CODY = %d\n", coder->id);
 			pthread_cond_wait(&coder->data->cond_thread,
 				&coder->data->state_mutex);			
 		}
@@ -61,33 +58,42 @@ static int	check_done(t_c *coder)
 	return (0);
 }
 
-void	*coder_routine(void *arg)
+static long get_wait_ms(t_c *coder)
 {
-	t_c	*coder;
-	int	j;
+    long now;
 
-	coder = (t_c *)arg;
-	j = 0;
-	while (j < coder->data->number_of_compiles_required)
-	{
-		pthread_mutex_lock(&coder->data->state_mutex);
-		wait_turn(coder);
-		printf("CODY CODY = %d\n", coder->id);
-		if (check_done(coder))
-			break ;
-		if (coder->left->available_at != 0 && coder->left->available_at > coder->right->available_at)
-			sleep(coder->left->available_at + (current_time_ms() - coder->data->start_time));
-		else if (coder->right->available_at != 0 && coder->right->available_at > coder->left->available_at)
-			sleep(coder->right->available_at + (current_time_ms() - coder->data->start_time));
-		pthread_mutex_unlock(&coder->data->state_mutex);
-		compile(coder);
-		pthread_mutex_lock(&coder->data->state_mutex);
-		if (check_done(coder))
-			break ;
-		signal_next(coder);
-		pthread_mutex_unlock(&coder->data->state_mutex);
-		debug_and_refactor(coder);
-		j++;
-	}
-	return (NULL);
+    now = current_time_ms() - coder->data->start_time;
+    if (coder->left->available_at != 0 && coder->left->available_at > coder->right->available_at)
+        return (coder->left->available_at - now);
+    return (coder->right->available_at - now);
+}
+
+void    *coder_routine(void *arg)
+{
+    t_c *coder;
+    int j;
+    long wait_ms;
+
+    coder = (t_c *)arg;
+    j = 0;
+    while (j < coder->data->number_of_compiles_required)
+    {
+        pthread_mutex_lock(&coder->data->state_mutex);
+        wait_turn(coder);
+        if (check_done(coder))
+            break ;
+        wait_ms = get_wait_ms(coder);
+        pthread_mutex_unlock(&coder->data->state_mutex);
+        if (wait_ms > 0)
+            usleep(wait_ms);
+        compile(coder);
+        pthread_mutex_lock(&coder->data->state_mutex);
+        if (check_done(coder))
+            break ;
+        signal_next(coder);
+        pthread_mutex_unlock(&coder->data->state_mutex);
+        debug_and_refactor(coder);
+        j++;
+    }
+    return (NULL);
 }

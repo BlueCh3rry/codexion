@@ -55,7 +55,6 @@ static void	release_dongles(t_c *coder)
 	now = current_time_ms() - coder->data->start_time;
 	coder->left->available_at = now + coder->data->dongle_cooldown;
 	coder->right->available_at = now + coder->data->dongle_cooldown;
-	printf("now = %ld\nAVA L %d = %ld\nAVA R %d = %ld\n", now, coder->left->id, coder->left->available_at, coder->right->id, coder->right->available_at);
 	pthread_mutex_unlock(&coder->data->state_mutex);
 	pthread_mutex_unlock(&coder->left->mutex);
 	pthread_mutex_unlock(&coder->right->mutex);
@@ -77,9 +76,7 @@ int	coder_can_compile(t_c *coder)
 	long	now;
 
 	now = current_time_ms() - coder->data->start_time;
-	// printf("NOW = %ld\nDongle L %d = %ld\nDongle R %d = %ld\nBOTH = %ld\n", now, coder->left->id, coder->left->available_at, coder->right->id, coder->right->available_at, now + coder->left->available_at);
 	if (coder->left->available_at > 0 && now >= coder->left->available_at && coder->right->available_at > 0 && now >= coder->right->available_at)
-		return (1);
-	// printf("SKIP\n");
-	return (0);
+		return (0);
+	return (1);
 }

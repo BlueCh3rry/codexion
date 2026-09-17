@@ -12,6 +12,14 @@
 
 #include "codexion.h"
 
+static int	activate_burn(t_data *data, int i)
+{
+	log_state(data, data->coders[i].id, "burned out");
+	data->done = 1;
+	pthread_cond_broadcast(&data->cond_thread);
+	return (1);
+}
+
 static int	check_burnout(t_data *data)
 {
 	int	i;
@@ -22,18 +30,17 @@ static int	check_burnout(t_data *data)
 		if (data->coders[i].last_compile_start != 0
 			&& current_time_ms() - data->coders[i].last_compile_start
 			>= data->time_to_burnout / 1000)
-		{
-			log_state(data, data->coders[i].id, "burned out");
-			data->done = 1;
-			pthread_cond_broadcast(&data->cond_thread);
-			return (1);
-		}
+			return (activate_burn(data, i));
+		if (data->coders[i].request_time != 0
+			&& current_time_ms() - data->coders[i].request_time
+			>= data->time_to_burnout / 1000)
+			return (activate_burn(data, i));
 		i++;
 	}
 	return (0);
 }
 
-void	*coder_chrono(void *arg)
+void	*coder_monitor(void *arg)
 {
 	t_data	*data;
 

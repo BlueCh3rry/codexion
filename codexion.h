@@ -22,6 +22,13 @@
 
 typedef struct data	t_data;
 
+typedef struct heap
+{
+    int						*array;
+    int						size;
+    int						capacity;
+}	t_h;
+
 typedef struct dongle
 {
 	int						id;
@@ -35,6 +42,7 @@ typedef struct coder
 {
 	int						id;
 
+	long					request_time;
 	long					last_compile_start;
 
 	t_d						*left;
@@ -62,6 +70,7 @@ typedef struct data
 
 	char					*scheduler;
 
+	t_h						*heap;
 	t_c						*coders;
 	t_d						*dongles;
 
@@ -74,7 +83,7 @@ typedef struct data
 }	t_data;
 
 void				*coder_routine(void *arg);
-void				*coder_chrono(void *arg);
+void				*coder_monitor(void *arg);
 void				compile(t_c *coder);
 int					coder_can_compile(t_c *coder);
 int					parse_args1(char **argv, t_data *data);

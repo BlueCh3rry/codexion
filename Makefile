@@ -13,7 +13,7 @@
 NAME = codexion
 
 SOURCES = utils.c \
-          chrono.c \
+          monitor.c \
           compile.c \
           coder_routine.c \
 		  parser.c \

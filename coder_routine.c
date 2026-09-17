@@ -79,10 +79,12 @@ void    *coder_routine(void *arg)
     while (j < coder->data->number_of_compiles_required)
     {
         pthread_mutex_lock(&coder->data->state_mutex);
+		// request(); // Request function to Heap queue
         wait_turn(coder);
         if (check_done(coder))
             break ;
-        wait_ms = get_wait_ms(coder);
+		coder->request_time = current_time_ms();
+		wait_ms = get_wait_ms(coder);
         pthread_mutex_unlock(&coder->data->state_mutex);
         if (wait_ms > 0)
             usleep(wait_ms);

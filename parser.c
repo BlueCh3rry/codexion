@@ -14,16 +14,16 @@
 
 int	parse_args1(char **argv, t_data *data)
 {
-	if (atoi(argv[1]) <= 1)
+	if (atoi(argv[1]) < 0)
 		return (printf("Error [1] number of coders is too low\n"), -1);
 	data->number_of_coders = atoi(argv[1]);
-	if (atoi(argv[2]) <= 1)
+	if (atoi(argv[2]) < 0)
 		return (printf("Error [2] time to burnout is too low\n"), -1);
 	data->time_to_burnout = atoi(argv[2]) * 1000;
-	if (atoi(argv[3]) <= 1)
+	if (atoi(argv[3]) < 0)
 		return (printf("Error [3] time to compile is too low\n"), -1);
 	data->time_to_compile = atoi(argv[3]) * 1000;
-	if (atoi(argv[4]) <= 1)
+	if (atoi(argv[4]) < 0)
 		return (printf("Error [4] time to debug is too low\n"), -1);
 	data->time_to_debug = atoi(argv[4]) * 1000;
 	return (0);
@@ -31,13 +31,13 @@ int	parse_args1(char **argv, t_data *data)
 
 int	parse_args2(char **argv, t_data *data)
 {
-	if (atoi(argv[5]) <= 1)
+	if (atoi(argv[5]) < 0)
 		return (printf("Error [5] time to refactor is too low\n"), -1);
 	data->time_to_refactor = atoi(argv[5]) * 1000;
-	if (atoi(argv[6]) <= 0)
+	if (atoi(argv[6]) < 1)
 		return (printf("Error [6] number of compiles required low\n"), -1);
 	data->number_of_compiles_required = atoi(argv[6]);
-	if (atoi(argv[7]) <= 0)
+	if (atoi(argv[7]) < 0)
 		return (printf("Error [7] dongle cooldown is low\n"), -1);
 	data->dongle_cooldown = atoi(argv[7]) * 1000;
 	if (!check_sched(argv[8]))
@@ -84,6 +84,7 @@ void	init_coders(t_data *data)
 		nbr = (i + 1) % data->number_of_coders;
 		data->coders[i].right = &data->dongles[nbr];
 		data->coders[i].last_compile_start = 0;
+		data->coders[i].request_time = 0;
 		data->coders[i].id = i + 1;
 		data->coders[i].data = data;
 		i++;

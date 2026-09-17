@@ -34,7 +34,7 @@ static void	start_threads(t_data *data)
 {
 	int	i;
 
-	pthread_create(&data->c_thread, NULL, coder_chrono, data);
+	pthread_create(&data->c_thread, NULL, coder_monitor, data);
 	i = 0;
 	while (i < data->number_of_coders)
 	{

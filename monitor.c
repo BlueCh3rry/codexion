@@ -12,8 +12,6 @@
 
 #include "codexion.h"
 
-/* Called with state_mutex held. log_forced() is used because data->done is
-** already set and log_state() would swallow the line.                       */
 static int	activate_burn(t_data *data, int i)
 {
 	data->done = 1;
@@ -22,16 +20,6 @@ static int	activate_burn(t_data *data, int i)
 	return (1);
 }
 
-/* [FIX] version had two problems:
-** 1. the request_time check never expires correctly: request_time was set
-**    on every loop and never reset, so a perfectly healthy coder was
-**    declared burned out time_to_burnout ms after its FIRST request.
-** 2. last_compile_start was reset to 0 in release_dongles(), so the real
-**    check was disabled exactly when it mattered (during debug/refactor).
-** Correct semantics: a coder burns out if time_to_burnout ms elapse since
-** the START of its last compile (start_time for the first one). The dongle
-** cooldown is therefore taken into account automatically: if a coder has to
-** wait for a cooldown longer than its remaining budget, it burns out.       */
 static int	check_burnout(t_data *data)
 {
 	int		i;

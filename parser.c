@@ -12,9 +12,6 @@
 
 #include "codexion.h"
 
-/* [FIX] all durations are now stored in MILLISECONDS (they used to be
-** multiplied by 1000 and then divided by 1000 again in half the file).
-** usleep/sim_sleep conversions are done at the call site.                   */
 int	parse_args1(char **argv, t_data *data)
 {
 	long	v;

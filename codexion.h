@@ -23,10 +23,6 @@
 
 typedef struct data	t_data;
 
-/* [ADDED] one pending compile request inside the priority queue.
-** key  -> fifo: ticket number | edf: absolute deadline (ms since start)
-** tie  -> ticket number, breaks equal keys so EDF stays fair (FIFO inside
-**         the same deadline) and never starves anyone.                      */
 typedef struct heap_node
 {
 	int						id;
@@ -34,8 +30,6 @@ typedef struct heap_node
 	long					tie;
 }	t_hn;
 
-/* [FIX] the heap was declared but never allocated nor used.
-** It now holds t_hn nodes instead of raw ints.                              */
 typedef struct heap
 {
 	t_hn					*array;
@@ -103,12 +97,7 @@ typedef struct data
 	pthread_mutex_t			log_mutex;
 }	t_data;
 
-/* [REMOVED] int order / int signal_count / void ft_signal(t_data *):
-** the round-robin "order" token was not a FIFO queue (it also deadlocked as
-** soon as one coder finished its compiles: the token kept being handed to a
-** thread that had already returned). Replaced by the heap + next_ticket.    */
-
-/* heap.c [ADDED] */
+/* heap.c */
 int					heap_init(t_h *heap, int capacity);
 void				heap_free(t_h *heap);
 void				heap_push(t_h *heap, int id, long key, long tie);

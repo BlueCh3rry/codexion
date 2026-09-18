@@ -12,12 +12,6 @@
 
 #include "codexion.h"
 
-/* [ADDED] the "request" step was missing: the coder announces itself in
-** the priority queue, then waits for its turn.
-** fifo -> key = ticket (arrival order)
-** edf  -> key = absolute deadline (last compile start + time_to_burnout),
-**         ticket only breaks ties.
-** Called with state_mutex held.                                             */
 static void	request_slot(t_c *coder)
 {
 	t_data	*d;
@@ -34,8 +28,6 @@ static void	request_slot(t_c *coder)
 	pthread_cond_broadcast(&d->cond_thread);
 }
 
-/* [FIX] replaces wait_turn()/signal_next()/ft_signal().
-** Returns 1 when the coder owns both dongles, 0 when the simulation ended.  */
 static int	acquire_turn(t_c *coder)
 {
 	t_data	*d;
@@ -70,9 +62,6 @@ static int	debug_and_refactor(t_c *coder)
 	return (0);
 }
 
-/* [ADDED] marks the coder as done so the monitor stops watching it; without
-** this, a coder that finished all its compiles was reported as burned out
-** while main() was still joining the others.                                */
 static void	mark_finished(t_c *coder)
 {
 	pthread_mutex_lock(&coder->data->state_mutex);
@@ -81,9 +70,6 @@ static void	mark_finished(t_c *coder)
 	pthread_mutex_unlock(&coder->data->state_mutex);
 }
 
-/* [ADDED] subject: "If there is only one coder, there should be only one
-** dongle on the table." That coder takes it, can never get a second one,
-** and waits for its burnout. It must still log the dongle it grabbed.      */
 static void	single_coder(t_c *coder)
 {
 	pthread_mutex_lock(&coder->left->mutex);

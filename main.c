@@ -65,9 +65,6 @@ static void	join_threads(t_data *data)
 	}
 }
 
-/* [FIX] the dongle mutexes were destroyed in join_threads() while the
-** monitor thread was still alive; destruction now happens here, after the
-** monitor has been joined. state_mutex was never destroyed at all.          */
 static void	cleanup(t_data *data)
 {
 	int	i;

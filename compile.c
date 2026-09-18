@@ -12,9 +12,6 @@
 
 #include "codexion.h"
 
-/* Dongles are reserved under state_mutex before we get here, so these two
-** locks can never block and can never deadlock. The lock order by id is
-** kept anyway (defensive, and it keeps the "dongle = mutex" semantics).     */
 static void	take_dongles(t_c *coder)
 {
 	if (coder->left->id < coder->right->id)
@@ -33,9 +30,6 @@ static void	take_dongles(t_c *coder)
 	}
 }
 
-/* [FIX] release order: unlock the real mutexes FIRST, then publish the
-** cooldown and clear in_use under state_mutex. Doing it the other way round
-** let a waiting coder see the dongle as free and then block on the mutex.   */
 static void	release_dongles(t_c *coder)
 {
 	long	now;
@@ -64,21 +58,12 @@ void	compile(t_c *coder)
 	release_dongles(coder);
 }
 
-/* [FIX] coder_can_compile() was inverted and unusable: it returned 1 (=wait)
-** whenever available_at was still 0, i.e. nobody could ever start, and the
-** two schedulers used the return value with opposite meanings.
-** New contract: returns 1 when the coder may start compiling NOW.
-** Must be called with state_mutex held.                                     */
 static int	shares_dongle(t_c *a, t_c *b)
 {
 	return (a->left == b->left || a->left == b->right
 		|| a->right == b->left || a->right == b->right);
 }
 
-/* Head-of-queue rule: a coder may start only if no *higher priority* queued
-** request needs one of its two dongles. That enforces FIFO order (or EDF
-** order) per dongle while still letting non-conflicting coders compile in
-** parallel, and it makes starvation impossible.                             */
 static int	blocked_by_higher(t_c *coder)
 {
 	t_h		*heap;
@@ -114,4 +99,3 @@ int	coder_can_compile(t_c *coder)
 		return (0);
 	return (!blocked_by_higher(coder));
 }
-

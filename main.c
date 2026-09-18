@@ -27,6 +27,12 @@ static int	alloc_structures(t_data *data)
 		free(data->coders);
 		return (-1);
 	}
+	if (heap_init(&data->heap, data->number_of_coders) == -1)
+	{
+		free(data->coders);
+		free(data->dongles);
+		return (-1);
+	}
 	return (0);
 }
 
@@ -57,24 +63,31 @@ static void	join_threads(t_data *data)
 		pthread_join(data->coders[i].thread, NULL);
 		i++;
 	}
+}
+
+/* [FIX] the dongle mutexes were destroyed in join_threads() while the
+** monitor thread was still alive; destruction now happens here, after the
+** monitor has been joined. state_mutex was never destroyed at all.          */
+static void	cleanup(t_data *data)
+{
+	int	i;
+
+	pthread_mutex_lock(&data->state_mutex);
+	data->done = 1;
+	pthread_cond_broadcast(&data->cond_thread);
+	pthread_mutex_unlock(&data->state_mutex);
+	pthread_join(data->c_thread, NULL);
 	i = 0;
 	while (i < data->number_of_coders)
 	{
 		pthread_mutex_destroy(&data->dongles[i].mutex);
 		i++;
 	}
-}
-
-static void	cleanup(t_data *data)
-{
-	pthread_mutex_lock(&data->state_mutex);
-	data->done = 1;
-	pthread_cond_broadcast(&data->cond_thread);
-	pthread_mutex_unlock(&data->state_mutex);
-	pthread_join(data->c_thread, NULL);
 	pthread_cond_destroy(&data->cond_thread);
 	pthread_mutex_destroy(&data->log_mutex);
+	pthread_mutex_destroy(&data->state_mutex);
 	printf("END\n");
+	heap_free(&data->heap);
 	free(data->scheduler);
 	free(data->coders);
 	free(data->dongles);
@@ -85,18 +98,16 @@ int	main(int argc, char **argv)
 	t_data	data;
 
 	if (argc != 9)
-	{
-		printf("Error arg");
-		return (0);
-	}
+		return (printf("Error arg\n"), 0);
+	memset(&data, 0, sizeof(t_data));
 	if (parse_args1(argv, &data) == -1 || parse_args2(argv, &data) == -1)
 		return (0);
 	if (init_scheduler(&data, argv[8]) == -1)
 		return (0);
 	if (alloc_structures(&data) == -1)
 		return (free(data.scheduler), 0);
-	data.order = 1;
 	data.done = 0;
+	data.next_ticket = 1;
 	pthread_cond_init(&data.cond_thread, NULL);
 	pthread_mutex_init(&data.log_mutex, NULL);
 	pthread_mutex_init(&data.state_mutex, NULL);

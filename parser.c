@@ -12,34 +12,41 @@
 
 #include "codexion.h"
 
+/* [FIX] all durations are now stored in MILLISECONDS (they used to be
+** multiplied by 1000 and then divided by 1000 again in half the file).
+** usleep/sim_sleep conversions are done at the call site.                   */
 int	parse_args1(char **argv, t_data *data)
 {
-	if (atoi(argv[1]) < 0)
-		return (printf("Error [1] number of coders is too low\n"), -1);
-	data->number_of_coders = atoi(argv[1]);
-	if (atoi(argv[2]) < 0)
-		return (printf("Error [2] time to burnout is too low\n"), -1);
-	data->time_to_burnout = atoi(argv[2]) * 1000;
-	if (atoi(argv[3]) < 0)
-		return (printf("Error [3] time to compile is too low\n"), -1);
-	data->time_to_compile = atoi(argv[3]) * 1000;
-	if (atoi(argv[4]) < 0)
-		return (printf("Error [4] time to debug is too low\n"), -1);
-	data->time_to_debug = atoi(argv[4]) * 1000;
+	long	v;
+
+	if (ft_atoi_safe(argv[1], &v) == -1 || v <= 0)
+		return (printf("Error [1] invalid number of coders\n"), -1);
+	data->number_of_coders = (int)v;
+	if (ft_atoi_safe(argv[2], &v) == -1 || v <= 0)
+		return (printf("Error [2] invalid time to burnout\n"), -1);
+	data->time_to_burnout = v;
+	if (ft_atoi_safe(argv[3], &v) == -1)
+		return (printf("Error [3] invalid time to compile\n"), -1);
+	data->time_to_compile = v;
+	if (ft_atoi_safe(argv[4], &v) == -1)
+		return (printf("Error [4] invalid time to debug\n"), -1);
+	data->time_to_debug = v;
 	return (0);
 }
 
 int	parse_args2(char **argv, t_data *data)
 {
-	if (atoi(argv[5]) < 0)
-		return (printf("Error [5] time to refactor is too low\n"), -1);
-	data->time_to_refactor = atoi(argv[5]) * 1000;
-	if (atoi(argv[6]) < 1)
-		return (printf("Error [6] number of compiles required low\n"), -1);
-	data->number_of_compiles_required = atoi(argv[6]);
-	if (atoi(argv[7]) < 0)
-		return (printf("Error [7] dongle cooldown is low\n"), -1);
-	data->dongle_cooldown = atoi(argv[7]) * 1000;
+	long	v;
+
+	if (ft_atoi_safe(argv[5], &v) == -1)
+		return (printf("Error [5] invalid time to refactor\n"), -1);
+	data->time_to_refactor = v;
+	if (ft_atoi_safe(argv[6], &v) == -1 || v < 1)
+		return (printf("Error [6] invalid number of compiles required\n"), -1);
+	data->number_of_compiles_required = (int)v;
+	if (ft_atoi_safe(argv[7], &v) == -1)
+		return (printf("Error [7] invalid dongle cooldown\n"), -1);
+	data->dongle_cooldown = v;
 	if (!check_sched(argv[8]))
 		return (printf("Error [8] scheduler is neither fifo nor edf\n"), -1);
 	return (0);
@@ -54,6 +61,7 @@ int	init_scheduler(t_data *data, char *sched)
 		return (-1);
 	}
 	ft_strcpy(data->scheduler, sched);
+	data->edf = !strcmp(sched, "edf");
 	return (0);
 }
 
@@ -66,6 +74,7 @@ void	init_dongles(t_data *data)
 	{
 		data->dongles[i].id = i + 1;
 		data->dongles[i].available_at = 0;
+		data->dongles[i].in_use = 0;
 		pthread_mutex_init(&data->dongles[i].mutex, NULL);
 		i++;
 	}
@@ -77,7 +86,6 @@ void	init_coders(t_data *data)
 	int	nbr;
 
 	i = 0;
-	nbr = 0;
 	while (i < data->number_of_coders)
 	{
 		data->coders[i].left = &data->dongles[i];
@@ -85,6 +93,9 @@ void	init_coders(t_data *data)
 		data->coders[i].right = &data->dongles[nbr];
 		data->coders[i].last_compile_start = 0;
 		data->coders[i].request_time = 0;
+		data->coders[i].queued = 0;
+		data->coders[i].finished = 0;
+		data->coders[i].deadline = data->time_to_burnout;
 		data->coders[i].id = i + 1;
 		data->coders[i].data = data;
 		i++;

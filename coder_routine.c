@@ -12,90 +12,105 @@
 
 #include "codexion.h"
 
-static void	wait_turn(t_c *coder)
+/* [ADDED] the "request" step was missing: the coder announces itself in
+** the priority queue, then waits for its turn.
+** fifo -> key = ticket (arrival order)
+** edf  -> key = absolute deadline (last compile start + time_to_burnout),
+**         ticket only breaks ties.
+** Called with state_mutex held.                                             */
+static void	request_slot(t_c *coder)
 {
-	if (!strcmp(coder->data->scheduler, "fifo"))
-	{
-		while (coder->id != coder->data->order && coder_can_compile(coder) == 1 && coder->data->done == 0)
-		{
-			pthread_cond_wait(&coder->data->cond_thread,
-				&coder->data->state_mutex);
-		}
-	}
+	t_data	*d;
+	long	ticket;
+
+	d = coder->data;
+	ticket = d->next_ticket++;
+	coder->request_time = elapsed_ms(d);
+	if (d->edf)
+		heap_push(&d->heap, coder->id, coder->deadline, ticket);
 	else
-	{
-		while (coder_can_compile(coder) == 0 && coder->data->done == 0)
-		{
-			pthread_cond_wait(&coder->data->cond_thread,
-				&coder->data->state_mutex);			
-		}
-	}
+		heap_push(&d->heap, coder->id, ticket, ticket);
+	coder->queued = 1;
+	pthread_cond_broadcast(&d->cond_thread);
 }
 
-static void	signal_next(t_c *coder)
+/* [FIX] replaces wait_turn()/signal_next()/ft_signal().
+** Returns 1 when the coder owns both dongles, 0 when the simulation ended.  */
+static int	acquire_turn(t_c *coder)
 {
-	if (!strcmp(coder->data->scheduler, "edf"))
-		pthread_cond_broadcast(&coder->data->cond_thread);
-	else
-		ft_signal(coder->data);
+	t_data	*d;
+
+	d = coder->data;
+	pthread_mutex_lock(&d->state_mutex);
+	request_slot(coder);
+	while (!d->done && !coder_can_compile(coder))
+		wait_tick(d);
+	heap_remove_id(&d->heap, coder->id);
+	coder->queued = 0;
+	if (d->done)
+	{
+		pthread_mutex_unlock(&d->state_mutex);
+		return (0);
+	}
+	coder->left->in_use = 1;
+	coder->right->in_use = 1;
+	coder->request_time = 0;
+	pthread_mutex_unlock(&d->state_mutex);
+	return (1);
 }
 
-static void	debug_and_refactor(t_c *coder)
+static int	debug_and_refactor(t_c *coder)
 {
 	log_state(coder->data, coder->id, "is debugging");
-	usleep(coder->data->time_to_debug);
-	log_state(coder->data, coder->id, "is refactoring");
-	usleep(coder->data->time_to_refactor);
-}
-
-static int	check_done(t_c *coder)
-{
-	if (coder->data->done)
-	{
-		pthread_mutex_unlock(&coder->data->state_mutex);
+	if (sim_sleep(coder->data, coder->data->time_to_debug))
 		return (1);
-	}
+	log_state(coder->data, coder->id, "is refactoring");
+	if (sim_sleep(coder->data, coder->data->time_to_refactor))
+		return (1);
 	return (0);
 }
 
-static long get_wait_ms(t_c *coder)
+/* [ADDED] marks the coder as done so the monitor stops watching it; without
+** this, a coder that finished all its compiles was reported as burned out
+** while main() was still joining the others.                                */
+static void	mark_finished(t_c *coder)
 {
-    long now;
-
-    now = current_time_ms() - coder->data->start_time;
-    if (coder->left->available_at != 0 && coder->left->available_at > coder->right->available_at)
-        return (coder->left->available_at - now);
-    return (coder->right->available_at - now);
+	pthread_mutex_lock(&coder->data->state_mutex);
+	coder->finished = 1;
+	pthread_cond_broadcast(&coder->data->cond_thread);
+	pthread_mutex_unlock(&coder->data->state_mutex);
 }
 
-void    *coder_routine(void *arg)
+/* [ADDED] subject: "If there is only one coder, there should be only one
+** dongle on the table." That coder takes it, can never get a second one,
+** and waits for its burnout. It must still log the dongle it grabbed.      */
+static void	single_coder(t_c *coder)
 {
-    t_c *coder;
-    int j;
-    long wait_ms;
+	pthread_mutex_lock(&coder->left->mutex);
+	log_state(coder->data, coder->id, "has taken a dongle");
+	while (!sim_sleep(coder->data, 1))
+		;
+	pthread_mutex_unlock(&coder->left->mutex);
+}
 
-    coder = (t_c *)arg;
-    j = 0;
-    while (j < coder->data->number_of_compiles_required)
-    {
-        pthread_mutex_lock(&coder->data->state_mutex);
-		// request(); // Request function to Heap queue
-        wait_turn(coder);
-        if (check_done(coder))
-            break ;
-		coder->request_time = current_time_ms();
-		wait_ms = get_wait_ms(coder);
-        pthread_mutex_unlock(&coder->data->state_mutex);
-        if (wait_ms > 0)
-            usleep(wait_ms);
-        compile(coder);
-        pthread_mutex_lock(&coder->data->state_mutex);
-        if (check_done(coder))
-            break ;
-        signal_next(coder);
-        pthread_mutex_unlock(&coder->data->state_mutex);
-        debug_and_refactor(coder);
-        j++;
-    }
-    return (NULL);
+void	*coder_routine(void *arg)
+{
+	t_c	*coder;
+	int	j;
+
+	coder = (t_c *)arg;
+	if (coder->left == coder->right)
+		return (single_coder(coder), NULL);
+	j = 0;
+	while (j < coder->data->number_of_compiles_required)
+	{
+		if (!acquire_turn(coder))
+			return (NULL);
+		compile(coder);
+		if (debug_and_refactor(coder))
+			return (NULL);
+		j++;
+	}
+	mark_finished(coder);
+	return (NULL);
 }

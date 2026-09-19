@@ -58,12 +58,6 @@ void	compile(t_c *coder)
 	release_dongles(coder);
 }
 
-static int	shares_dongle(t_c *a, t_c *b)
-{
-	return (a->left == b->left || a->left == b->right
-		|| a->right == b->left || a->right == b->right);
-}
-
 static int	blocked_by_higher(t_c *coder)
 {
 	t_h		*heap;

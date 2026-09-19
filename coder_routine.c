@@ -62,14 +62,6 @@ static int	debug_and_refactor(t_c *coder)
 	return (0);
 }
 
-static void	mark_finished(t_c *coder)
-{
-	pthread_mutex_lock(&coder->data->state_mutex);
-	coder->finished = 1;
-	pthread_cond_broadcast(&coder->data->cond_thread);
-	pthread_mutex_unlock(&coder->data->state_mutex);
-}
-
 static void	single_coder(t_c *coder)
 {
 	pthread_mutex_lock(&coder->left->mutex);
@@ -97,6 +89,9 @@ void	*coder_routine(void *arg)
 			return (NULL);
 		j++;
 	}
-	mark_finished(coder);
+	pthread_mutex_lock(&coder->data->state_mutex);
+	coder->finished = 1;
+	pthread_cond_broadcast(&coder->data->cond_thread);
+	pthread_mutex_unlock(&coder->data->state_mutex);
 	return (NULL);
 }

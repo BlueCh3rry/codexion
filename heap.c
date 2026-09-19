@@ -12,14 +12,6 @@
 
 #include "codexion.h"
 
-/* strict "a goes before b": smaller key first, ticket breaks ties. */
-int	hn_before(t_hn *a, t_hn *b)
-{
-	if (a->key != b->key)
-		return (a->key < b->key);
-	return (a->tie < b->tie);
-}
-
 static void	hn_swap(t_hn *a, t_hn *b)
 {
 	t_hn	tmp;
@@ -58,23 +50,6 @@ static void	sift_down(t_h *heap, int i)
 	}
 }
 
-int	heap_init(t_h *heap, int capacity)
-{
-	heap->array = malloc(sizeof(t_hn) * capacity);
-	if (!heap->array)
-		return (printf("Error malloc heap\n"), -1);
-	heap->size = 0;
-	heap->capacity = capacity;
-	return (0);
-}
-
-void	heap_free(t_h *heap)
-{
-	free(heap->array);
-	heap->array = NULL;
-	heap->size = 0;
-}
-
 void	heap_push(t_h *heap, int id, long key, long tie)
 {
 	if (heap->size >= heap->capacity)
@@ -84,20 +59,6 @@ void	heap_push(t_h *heap, int id, long key, long tie)
 	heap->array[heap->size].tie = tie;
 	heap->size++;
 	sift_up(heap, heap->size - 1);
-}
-
-int	heap_find(t_h *heap, int id)
-{
-	int	i;
-
-	i = 0;
-	while (i < heap->size)
-	{
-		if (heap->array[i].id == id)
-			return (i);
-		i++;
-	}
-	return (-1);
 }
 
 void	heap_remove_id(t_h *heap, int id)
@@ -113,11 +74,4 @@ void	heap_remove_id(t_h *heap, int id)
 	heap->array[i] = heap->array[heap->size];
 	sift_down(heap, i);
 	sift_up(heap, i);
-}
-
-int	heap_peek_id(t_h *heap)
-{
-	if (heap->size == 0)
-		return (-1);
-	return (heap->array[0].id);
 }

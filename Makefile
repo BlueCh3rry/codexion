@@ -13,12 +13,14 @@
 NAME = codexion
 
 SOURCES = utils.c \
-          monitor.c \
-          compile.c \
-          coder_routine.c \
+		  utils2.c \
+		  monitor.c \
+		  compile.c \
+		  coder_routine.c \
 		  parser.c \
 		  heap.c \
-          main.c
+		  heap2.c \
+		  main.c
 
 OBJECTS = $(SOURCES:.c=.o)
 

@@ -97,7 +97,11 @@ typedef struct data
 	pthread_mutex_t			log_mutex;
 }	t_data;
 
-/* heap.c */
+void				*coder_routine(void *arg);
+void				*coder_monitor(void *arg);
+void				compile(t_c *coder);
+int					coder_can_compile(t_c *coder);
+
 int					heap_init(t_h *heap, int capacity);
 void				heap_free(t_h *heap);
 void				heap_push(t_h *heap, int id, long key, long tie);
@@ -106,20 +110,12 @@ int					heap_find(t_h *heap, int id);
 int					heap_peek_id(t_h *heap);
 int					hn_before(t_hn *a, t_hn *b);
 
-/* routine / monitor / compile */
-void				*coder_routine(void *arg);
-void				*coder_monitor(void *arg);
-void				compile(t_c *coder);
-int					coder_can_compile(t_c *coder);
-
-/* init / parsing */
 int					parse_args1(char **argv, t_data *data);
 int					parse_args2(char **argv, t_data *data);
 int					init_scheduler(t_data *data, char *sched);
 void				init_dongles(t_data *data);
 void				init_coders(t_data *data);
 
-/* utils */
 void				log_state(t_data *data, int id, char *msg);
 void				log_forced(t_data *data, int id, char *msg);
 size_t				ft_strcpy(char *dst, const char *src);
@@ -129,5 +125,6 @@ long				current_time_ms(void);
 long				elapsed_ms(t_data *data);
 int					sim_sleep(t_data *data, long ms);
 void				wait_tick(t_data *data);
+int					shares_dongle(t_c *a, t_c *b);
 
 #endif

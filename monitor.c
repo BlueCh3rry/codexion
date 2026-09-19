@@ -1,15 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   chrono.c                                           :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: mmakhmae <marvin@42.fr>                    +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/09/14 17:52:03 by mmakhmae          #+#    #+#             */
-/*   Updated: 2026/09/14 17:52:05 by mmakhmae         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "codexion.h"
 
 static int	activate_burn(t_data *data, int i)
@@ -31,7 +19,7 @@ static int	check_burnout(t_data *data)
 	{
 		if (!data->coders[i].finished
 			&& now - data->coders[i].last_compile_start
-			>= data->time_to_burnout) // update here to > if not working
+			>= data->time_to_burnout) // update to > if not working
 			return (activate_burn(data, i));
 		i++;
 	}

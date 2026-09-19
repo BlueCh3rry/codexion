@@ -73,3 +73,9 @@ void	wait_tick(t_data *data)
 	}
 	pthread_cond_timedwait(&data->cond_thread, &data->state_mutex, &ts);
 }
+
+int	shares_dongle(t_c *a, t_c *b)
+{
+	return (a->left == b->left || a->left == b->right
+		|| a->right == b->left || a->right == b->right);
+}

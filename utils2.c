@@ -64,7 +64,7 @@ void	wait_tick(t_data *data)
 {
 	struct timespec	ts;
 
-	clock_gettime(current_time_ms(), &ts);
+	clock_gettime(CLOCK_REALTIME, &ts);
 	ts.tv_nsec += 1000000;
 	if (ts.tv_nsec >= 1000000000)
 	{

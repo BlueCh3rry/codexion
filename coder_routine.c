@@ -95,3 +95,4 @@ void	*coder_routine(void *arg)
 	pthread_mutex_unlock(&coder->data->state_mutex);
 	return (NULL);
 }
+

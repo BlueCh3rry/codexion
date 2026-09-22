@@ -58,26 +58,41 @@ void	compile(t_c *coder)
 	release_dongles(coder);
 }
 
-static int	blocked_by_higher(t_c *coder)
+static int  ready_now(t_c *c)
 {
-	t_h		*heap;
-	int		me;
-	int		i;
+    long now;
 
-	heap = &coder->data->heap;
-	me = heap_find(heap, coder->id);
-	if (me < 0)
-		return (1);
-	i = 0;
-	while (i < heap->size)
-	{
-		if (i != me && hn_before(&heap->array[i], &heap->array[me])
-			&& shares_dongle(coder,
-				&coder->data->coders[heap->array[i].id - 1]))
-			return (1);
-		i++;
-	}
-	return (0);
+    if (c->left->in_use || c->right->in_use)
+        return (0);
+    now = elapsed_ms(c->data);
+    if (now < c->left->available_at || now < c->right->available_at)
+        return (0);
+    return (1);
+}
+
+static int  blocked_by_higher(t_c *coder)
+{
+    t_h     *heap;
+    t_c     *other;
+    int     me;
+    int     i;
+
+    heap = &coder->data->heap;
+    me = heap_find(heap, coder->id);
+    if (me < 0)
+        return (1);
+    i = 0;
+    while (i < heap->size)
+    {
+        if (i != me && hn_before(&heap->array[i], &heap->array[me]))
+        {
+            other = &coder->data->coders[heap->array[i].id - 1];
+            if (shares_dongle(coder, other) && ready_now(other))
+                return (1);
+        }
+        i++;
+    }
+    return (0);
 }
 
 int	coder_can_compile(t_c *coder)

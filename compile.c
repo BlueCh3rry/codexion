@@ -58,41 +58,10 @@ void	compile(t_c *coder)
 	release_dongles(coder);
 }
 
-static int  ready_now(t_c *c)
+/* a coder may compile only if it is at the top of both its dongle heaps */
+static int	is_top(t_d *dongle, int id)
 {
-    long now;
-
-    if (c->left->in_use || c->right->in_use)
-        return (0);
-    now = elapsed_ms(c->data);
-    if (now < c->left->available_at || now < c->right->available_at)
-        return (0);
-    return (1);
-}
-
-static int  blocked_by_higher(t_c *coder)
-{
-    t_h     *heap;
-    t_c     *other;
-    int     me;
-    int     i;
-
-    heap = &coder->data->heap;
-    me = heap_find(heap, coder->id);
-    if (me < 0)
-        return (1);
-    i = 0;
-    while (i < heap->size)
-    {
-        if (i != me && hn_before(&heap->array[i], &heap->array[me]))
-        {
-            other = &coder->data->coders[heap->array[i].id - 1];
-            if (shares_dongle(coder, other) && ready_now(other))
-                return (1);
-        }
-        i++;
-    }
-    return (0);
+	return (dongle->heap.size > 0 && dongle->heap.requests[0].id == id);
 }
 
 int	coder_can_compile(t_c *coder)
@@ -106,5 +75,6 @@ int	coder_can_compile(t_c *coder)
 	now = elapsed_ms(coder->data);
 	if (now < coder->left->available_at || now < coder->right->available_at)
 		return (0);
-	return (!blocked_by_higher(coder));
+	return (is_top(coder->left, coder->id)
+		&& is_top(coder->right, coder->id));
 }

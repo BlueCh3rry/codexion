@@ -19,7 +19,6 @@ SOURCES = utils.c \
 		  coder_routine.c \
 		  parser.c \
 		  heap.c \
-		  heap2.c \
 		  main.c
 
 OBJECTS = $(SOURCES:.c=.o)
@@ -36,13 +35,13 @@ $(NAME): $(OBJECTS)
 	$(CC) $(CFLAGS) $(OBJECTS) -o $(NAME)
 
 run: $(NAME)
-	./$(NAME) 5 50 0 0 0 1 25 edf
+	./$(NAME) 5 50 0 0 0 1 22 edf
 
 leak: $(NAME)
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(NAME) 300 10 20 20 20 1 5 fifo
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(NAME) 5 500 0 0 0 1 20 edf
 
 helgrind: $(NAME)
-	valgrind --tool=helgrind ./$(NAME) 5 500 0 0 0 1 20 edf
+	valgrind --tool=helgrind -s ./$(NAME) 5 500 0 0 0 1 20 edf
 
 clean:
 	rm -f $(OBJECTS)

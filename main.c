@@ -27,12 +27,6 @@ static int	alloc_structures(t_data *data)
 		free(data->coders);
 		return (-1);
 	}
-	if (heap_init(&data->heap, data->number_of_coders) == -1)
-	{
-		free(data->coders);
-		free(data->dongles);
-		return (-1);
-	}
 	return (0);
 }
 
@@ -84,8 +78,6 @@ static void	cleanup(t_data *data)
 	pthread_mutex_destroy(&data->log_mutex);
 	pthread_mutex_destroy(&data->state_mutex);
 	printf("END\n");
-	heap_free(&data->heap);
-	free(data->scheduler);
 	free(data->coders);
 	free(data->dongles);
 }
@@ -102,7 +94,7 @@ int	main(int argc, char **argv)
 	if (init_scheduler(&data, argv[8]) == -1)
 		return (0);
 	if (alloc_structures(&data) == -1)
-		return (free(data.scheduler), 0);
+		return (0);
 	data.done = 0;
 	data.next_ticket = 1;
 	pthread_cond_init(&data.cond_thread, NULL);

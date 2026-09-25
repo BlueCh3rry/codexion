@@ -1,65 +1,86 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   monitor.c                                          :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: mmakhmae <marvin@42.fr>                    +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/09/25 18:30:00 by mmakhmae          #+#    #+#             */
+/*   Updated: 2026/09/25 18:30:01 by mmakhmae         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "codexion.h"
 
-static int	activate_burn(t_data *data, int i)
+void	wakeup_coders(t_data *data)
 {
-	data->done = 1;
-	log_forced(data, data->coders[i].id, "burned out");
+	pthread_mutex_lock(&data->state_mutex);
 	pthread_cond_broadcast(&data->cond_thread);
+	pthread_mutex_unlock(&data->state_mutex);
+}
+
+/* burns out when now - last_compile >= burnout (use > if it fires early).
+** last_compile is 0 before the first compile, so it counts from the start. */
+static int	burnout_handle(t_data *data, int i, long last_compile)
+{
+	if (elapsed_ms(data) - last_compile < data->time_to_burnout)
+		return (0);
+	pthread_mutex_lock(&data->state_mutex);
+	data->done = 1;
+	pthread_mutex_unlock(&data->state_mutex);
+	log_forced(data, data->coders[i].id, "burned out");
+	wakeup_coders(data);
 	return (1);
 }
 
-static int	check_burnout(t_data *data)
+static int	routine_primer(t_data *data, int *i, int *all_done)
 {
-	int		i;
-	long	now;
-
-	i = 0;
-	now = elapsed_ms(data);
-	while (i < data->number_of_coders)
+	if (*all_done)
 	{
-		if (!data->coders[i].finished
-			&& now - data->coders[i].last_compile_start
-			>= data->time_to_burnout) // update to > if not working
-			return (activate_burn(data, i));
-		i++;
+		pthread_mutex_lock(&data->state_mutex);
+		data->done = 1;
+		pthread_mutex_unlock(&data->state_mutex);
+		wakeup_coders(data);
+		return (1);
 	}
+	*i = 0;
+	*all_done = 1;
+	usleep(100);
 	return (0);
 }
 
-static int	all_finished(t_data *data)
+static int	read_coder(t_data *data, int i, long *last_compile)
 {
-	int	i;
+	int	completed;
 
-	i = 0;
-	while (i < data->number_of_coders)
-	{
-		if (!data->coders[i].finished)
-			return (0);
-		i++;
-	}
-	return (1);
+	pthread_mutex_lock(&data->state_mutex);
+	completed = data->coders[i].completed_compiles;
+	*last_compile = data->coders[i].last_compile_start;
+	pthread_mutex_unlock(&data->state_mutex);
+	return (completed);
 }
 
 void	*coder_monitor(void *arg)
 {
 	t_data	*data;
+	int		all_done;
+	int		i;
+	long	last_compile;
 
 	data = (t_data *)arg;
+	i = 0;
+	all_done = 1;
 	while (1)
 	{
-		pthread_mutex_lock(&data->state_mutex);
-		if (data->done || all_finished(data))
+		if (read_coder(data, i, &last_compile)
+			< data->number_of_compiles_required)
 		{
-			pthread_mutex_unlock(&data->state_mutex);
-			break ;
+			all_done = 0;
+			if (burnout_handle(data, i, last_compile))
+				return (NULL);
 		}
-		if (check_burnout(data))
-		{
-			pthread_mutex_unlock(&data->state_mutex);
+		if (++i == data->number_of_coders
+			&& routine_primer(data, &i, &all_done))
 			return (NULL);
-		}
-		pthread_mutex_unlock(&data->state_mutex);
-		usleep(500);
 	}
-	return (NULL);
 }

@@ -51,13 +51,6 @@ int	parse_args2(char **argv, t_data *data)
 
 int	init_scheduler(t_data *data, char *sched)
 {
-	data->scheduler = malloc(strlen(sched) + 1);
-	if (!data->scheduler)
-	{
-		printf("Error malloc scheduler\n");
-		return (-1);
-	}
-	ft_strcpy(data->scheduler, sched);
 	data->edf = !strcmp(sched, "edf");
 	return (0);
 }
@@ -72,6 +65,7 @@ void	init_dongles(t_data *data)
 		data->dongles[i].id = i + 1;
 		data->dongles[i].available_at = 0;
 		data->dongles[i].in_use = 0;
+		data->dongles[i].heap.size = 0;
 		pthread_mutex_init(&data->dongles[i].mutex, NULL);
 		i++;
 	}
@@ -91,7 +85,7 @@ void	init_coders(t_data *data)
 		data->coders[i].last_compile_start = 0;
 		data->coders[i].request_time = 0;
 		data->coders[i].queued = 0;
-		data->coders[i].finished = 0;
+		data->coders[i].completed_compiles = 0;
 		data->coders[i].deadline = data->time_to_burnout;
 		data->coders[i].id = i + 1;
 		data->coders[i].data = data;

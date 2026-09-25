@@ -23,19 +23,17 @@
 
 typedef struct data	t_data;
 
-typedef struct heap_node
+typedef struct request
 {
 	int						id;
-	long					key;
-	long					tie;
-}	t_hn;
+	long					metric;
+}	t_request;
 
 typedef struct heap
 {
-	t_hn					*array;
+	t_request				requests[2];
 	int						size;
-	int						capacity;
-}	t_h;
+}	t_heap;
 
 typedef struct dongle
 {
@@ -45,6 +43,8 @@ typedef struct dongle
 
 	int						in_use;
 
+	t_heap					heap;
+
 	pthread_mutex_t			mutex;
 }	t_d;
 
@@ -53,7 +53,7 @@ typedef struct coder
 	int						id;
 
 	int						queued;
-	int						finished;
+	int						completed_compiles;
 
 	long					request_time;
 	long					last_compile_start;
@@ -83,9 +83,6 @@ typedef struct data
 	long					dongle_cooldown;
 	long					next_ticket;
 
-	char					*scheduler;
-
-	t_h						heap;
 	t_c						*coders;
 	t_d						*dongles;
 
@@ -102,13 +99,10 @@ void				*coder_monitor(void *arg);
 void				compile(t_c *coder);
 int					coder_can_compile(t_c *coder);
 
-int					heap_init(t_h *heap, int capacity);
-void				heap_free(t_h *heap);
-void				heap_push(t_h *heap, int id, long key, long tie);
-void				heap_remove_id(t_h *heap, int id);
-int					heap_find(t_h *heap, int id);
-int					heap_peek_id(t_h *heap);
-int					hn_before(t_hn *a, t_hn *b);
+void				add_request(t_heap *heap, int id, long metric);
+void				remove_request_top(t_heap *heap);
+void				pre_register_heaps(t_d *first, t_d *second,
+						t_c *coder, long metric);
 
 int					parse_args1(char **argv, t_data *data);
 int					parse_args2(char **argv, t_data *data);
@@ -124,7 +118,8 @@ int					ft_atoi_safe(const char *s, long *out);
 long				current_time_ms(void);
 long				elapsed_ms(t_data *data);
 int					sim_sleep(t_data *data, long ms);
-void				wait_tick(t_data *data);
-int					shares_dongle(t_c *a, t_c *b);
+void				wait_tick(struct timespec *ts);
+void				swap(t_request *x, t_request *y);
+void				wakeup_coders(t_data *data);
 
 #endif

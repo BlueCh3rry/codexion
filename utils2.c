@@ -60,24 +60,25 @@ int	sim_sleep(t_data *data, long ms)
 	return (0);
 }
 
-void	wait_tick(t_data *data)
+void	wait_tick(struct timespec *ts)
 {
 	struct timeval	tv;
-	struct timespec	ts;
 
 	gettimeofday(&tv, NULL);
-	ts.tv_sec = tv.tv_sec;
-	ts.tv_nsec = tv.tv_usec * 1000 + 1000000;
-	if (ts.tv_nsec >= 1000000000)
+	ts->tv_sec = tv.tv_sec;
+	ts->tv_nsec = tv.tv_usec * 1000 + 1000000;
+	if (ts->tv_nsec >= 1000000000)
 	{
-		ts.tv_sec += 1;
-		ts.tv_nsec -= 1000000000;
+		ts->tv_sec += 1;
+		ts->tv_nsec -= 1000000000;
 	}
-	pthread_cond_timedwait(&data->cond_thread, &data->state_mutex, &ts);
 }
 
-int	shares_dongle(t_c *a, t_c *b)
+void	swap(t_request *x, t_request *y)
 {
-	return (a->left == b->left || a->left == b->right
-		|| a->right == b->left || a->right == b->right);
+	t_request	tmp;
+
+	tmp = *x;
+	*x = *y;
+	*y = tmp;
 }

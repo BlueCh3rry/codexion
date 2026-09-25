@@ -17,9 +17,8 @@ The goal of the project is to correctly manage concurrent access to shared resou
 - producing an accurate, race-free log of every coder's state changes.
 
 Two scheduling strategies are supported:
-- **FIFO** — (First–in First-out) coders compile strictly in turn order.
-- **EDF** (Earliest Deadline First–inspired) — a coder may compile as soon as both
-  of its dongles are available again (post-cooldown), independent of turn order.
+- **FIFO** — (First–in First-out) coders compile in order they requested.
+- **EDF** (Earliest Deadline First) — a coder with the closest deadline compile first.
 
 ## Instructions
 
@@ -109,12 +108,8 @@ Example:
   at the same time.
 - **`pthread_cond_t cond_thread`** — Used as the coordination signal between coder
   threads and the scheduler:
-  - In FIFO mode, a coder that is not next in `order` calls `pthread_cond_wait()`
-    and sleeps until it is woken by `ft_signal()` (called by the coder who just
-    finished compiling), which advances `order` and broadcasts.
-  - In EDF mode, a coder waits on the same condition variable until
-    `coder_can_compile()` becomes true; every completed compile triggers a
-    `pthread_cond_broadcast()` so all waiting coders re-check their availability.
+  - In FIFO mode
+  - In EDF mode
   - The monitor thread also broadcasts on this condition variable when it detects
     burnout, guaranteeing no coder thread is left permanently blocked in
     `pthread_cond_wait()` once the simulation is flagged as done.

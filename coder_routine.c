@@ -12,18 +12,20 @@
 
 #include "codexion.h"
 
+/* metric = FIFO ticket, or EDF deadline. For EDF the coder id goes in the
+** low part so two metrics are never equal (no tie can block both coders). */
 static void	request_slot(t_c *coder)
 {
 	t_data	*d;
-	long	ticket;
+	long	metric;
 
 	d = coder->data;
-	ticket = d->next_ticket++;
-	coder->request_time = elapsed_ms(d);
 	if (d->edf)
-		heap_push(&d->heap, coder->id, coder->deadline, ticket);
+		metric = coder->deadline * (d->number_of_coders + 1) + coder->id;
 	else
-		heap_push(&d->heap, coder->id, ticket, ticket);
+		metric = d->next_ticket++;
+	coder->request_time = elapsed_ms(d);
+	pre_register_heaps(coder->left, coder->right, coder, metric);
 	coder->queued = 1;
 	pthread_cond_broadcast(&d->cond_thread);
 }
@@ -31,19 +33,24 @@ static void	request_slot(t_c *coder)
 static int	acquire_turn(t_c *coder)
 {
 	t_data	*d;
+	struct timespec ts;
 
 	d = coder->data;
 	pthread_mutex_lock(&d->state_mutex);
 	request_slot(coder);
 	while (!d->done && !coder_can_compile(coder))
-		wait_tick(d);
-	heap_remove_id(&d->heap, coder->id);
+	{
+		wait_tick(&ts);
+        pthread_cond_timedwait(&d->cond_thread, &d->state_mutex, &ts);
+	}
 	coder->queued = 0;
 	if (d->done)
 	{
 		pthread_mutex_unlock(&d->state_mutex);
 		return (0);
 	}
+	remove_request_top(&coder->left->heap);
+	remove_request_top(&coder->right->heap);
 	coder->left->in_use = 1;
 	coder->right->in_use = 1;
 	coder->request_time = 0;
@@ -51,6 +58,7 @@ static int	acquire_turn(t_c *coder)
 	return (1);
 }
 
+/* a compile cycle counts as completed once debug + refactor are done */
 static int	debug_and_refactor(t_c *coder)
 {
 	log_state(coder->data, coder->id, "is debugging");
@@ -59,6 +67,9 @@ static int	debug_and_refactor(t_c *coder)
 	log_state(coder->data, coder->id, "is refactoring");
 	if (sim_sleep(coder->data, coder->data->time_to_refactor))
 		return (1);
+	pthread_mutex_lock(&coder->data->state_mutex);
+	coder->completed_compiles++;
+	pthread_mutex_unlock(&coder->data->state_mutex);
 	return (0);
 }
 
@@ -89,10 +100,5 @@ void	*coder_routine(void *arg)
 			return (NULL);
 		j++;
 	}
-	pthread_mutex_lock(&coder->data->state_mutex);
-	coder->finished = 1;
-	pthread_cond_broadcast(&coder->data->cond_thread);
-	pthread_mutex_unlock(&coder->data->state_mutex);
 	return (NULL);
 }
-

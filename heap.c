@@ -12,66 +12,71 @@
 
 #include "codexion.h"
 
-static void	hn_swap(t_hn *a, t_hn *b)
+static void	bubble_up(t_request *requests, int i)
 {
-	t_hn	tmp;
+	int	parent_idx;
 
-	tmp = *a;
-	*a = *b;
-	*b = tmp;
-}
-
-static void	sift_up(t_h *heap, int i)
-{
-	while (i > 0 && hn_before(&heap->array[i], &heap->array[(i - 1) / 2]))
+	while (i > 0)
 	{
-		hn_swap(&heap->array[i], &heap->array[(i - 1) / 2]);
-		i = (i - 1) / 2;
+		parent_idx = (i - 1) / 2;
+		if (requests[i].metric < requests[parent_idx].metric)
+			swap(&requests[parent_idx], &requests[i]);
+		else
+			break ;
+		i = parent_idx;
 	}
 }
 
-static void	sift_down(t_h *heap, int i)
+static void	heapify(t_request *requests, int parent, int size)
 {
-	int	best;
+	int	left_child_idx;
+	int	right_child_idx;
+	int	least;
 
+	least = parent;
 	while (1)
 	{
-		best = i;
-		if (2 * i + 1 < heap->size
-			&& hn_before(&heap->array[2 * i + 1], &heap->array[best]))
-			best = 2 * i + 1;
-		if (2 * i + 2 < heap->size
-			&& hn_before(&heap->array[2 * i + 2], &heap->array[best]))
-			best = 2 * i + 2;
-		if (best == i)
-			return ;
-		hn_swap(&heap->array[i], &heap->array[best]);
-		i = best;
+		left_child_idx = (parent * 2) + 1;
+		right_child_idx = (parent * 2) + 2;
+		if (left_child_idx < size && requests[left_child_idx].metric
+			< requests[parent].metric)
+			least = left_child_idx;
+		if (right_child_idx < size && requests[right_child_idx].metric
+			< requests[least].metric)
+			least = right_child_idx;
+		if (least == parent)
+			break ;
+		swap(&requests[least], &requests[parent]);
+		parent = least;
 	}
 }
 
-void	heap_push(t_h *heap, int id, long key, long tie)
+void	add_request(t_heap *heap, int id, long metric)
 {
-	if (heap->size >= heap->capacity)
+	if (!heap || (heap->size == 2))
 		return ;
-	heap->array[heap->size].id = id;
-	heap->array[heap->size].key = key;
-	heap->array[heap->size].tie = tie;
-	heap->size++;
-	sift_up(heap, heap->size - 1);
+	heap->requests[heap->size].id = id;
+	heap->requests[heap->size].metric = metric;
+	bubble_up(heap->requests, heap->size);
+	heap->size += 1;
 }
 
-void	heap_remove_id(t_h *heap, int id)
+void	remove_request_top(t_heap *heap)
 {
-	int	i;
+	if (!heap || !heap->size)
+		return ;
+	if (&heap->requests[0] != &heap->requests[heap->size - 1])
+		swap(&heap->requests[0], &heap->requests[heap->size - 1]);
+	heap->size -= 1;
+	heapify(heap->requests, 0, heap->size);
+	return ;
+}
 
-	i = heap_find(heap, id);
-	if (i < 0)
-		return ;
-	heap->size--;
-	if (i == heap->size)
-		return ;
-	heap->array[i] = heap->array[heap->size];
-	sift_down(heap, i);
-	sift_up(heap, i);
+/* heaps are protected by state_mutex (held by the caller), not by the
+** dongle mutex, because the dongle mutex is held during a whole compile. */
+void	pre_register_heaps(t_d *first, t_d *second,
+	t_c *coder, long metric)
+{
+	add_request(&first->heap, coder->id, metric);
+	add_request(&second->heap, coder->id, metric);
 }

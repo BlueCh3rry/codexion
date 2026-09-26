@@ -30,35 +30,36 @@ static void	request_slot(t_c *coder)
 	pthread_cond_broadcast(&d->cond_thread);
 }
 
-static int	acquire_turn(t_c *coder)
+static int  acquire_turn(t_c *coder)
 {
-	t_data	*d;
-	struct timespec ts;
+    t_data  *d;
+    long    wait_until;
+    long    delta;
 
-	d = coder->data;
-	pthread_mutex_lock(&d->state_mutex);
-	request_slot(coder);
-	while (!d->done && !coder_can_compile(coder))
-	{
-		wait_tick(&ts);
-        pthread_cond_timedwait(&d->cond_thread, &d->state_mutex, &ts);
-	}
-	coder->queued = 0;
-	if (d->done)
-	{
-		pthread_mutex_unlock(&d->state_mutex);
-		return (0);
-	}
-	remove_request_top(&coder->left->heap);
-	remove_request_top(&coder->right->heap);
-	coder->left->in_use = 1;
-	coder->right->in_use = 1;
-	coder->request_time = 0;
-	pthread_mutex_unlock(&d->state_mutex);
-	return (1);
+    d = coder->data;
+    pthread_mutex_lock(&d->state_mutex);
+    request_slot(coder);
+    while (!d->done && !coder_can_compile(coder))
+    {
+        wait_until = MAX(coder->left->available_at, coder->right->available_at);
+        delta = wait_until - elapsed_ms(d);
+        if (delta > 0)
+            usleep(delta * 1000);
+        pthread_cond_wait(&d->cond_thread, &d->state_mutex);
+    }
+    coder->queued = 0;
+    if (d->done)
+    {
+        pthread_mutex_unlock(&d->state_mutex);
+        return (0);
+    }
+    remove_request_top(&coder->left->heap);
+    remove_request_top(&coder->right->heap);
+    coder->request_time = 0;
+    pthread_mutex_unlock(&d->state_mutex);
+    return (1);
 }
 
-/* a compile cycle counts as completed once debug + refactor are done */
 static int	debug_and_refactor(t_c *coder)
 {
 	log_state(coder->data, coder->id, "is debugging");

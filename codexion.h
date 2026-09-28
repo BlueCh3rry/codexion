@@ -21,7 +21,7 @@
 # include <sys/time.h>
 # include <time.h>
 
-#define DEBUG 0
+# define DEBUG 0
 
 typedef struct data	t_data;
 
@@ -101,6 +101,7 @@ void				*coder_routine(void *arg);
 void				*coder_monitor(void *arg);
 void				compile(t_c *coder);
 int					coder_can_compile(t_c *coder);
+void				take_dongles(t_c *coder);
 
 void				add_request(t_heap *heap, int id, long metric);
 void				remove_request_top(t_heap *heap);
@@ -113,16 +114,16 @@ int					init_scheduler(t_data *data, char *sched);
 void				init_dongles(t_data *data);
 void				init_coders(t_data *data);
 
+void				single_coder(t_c *coder);
 void				log_state(t_data *data, int id, char *msg);
 void				log_forced(t_data *data, int id, char *msg);
 size_t				ft_strcpy(char *dst, const char *src);
-int					check_sched(char *s);
 int					ft_atoi_safe(const char *s, long *out);
 long				current_time_ms(void);
 long				elapsed_ms(t_data *data);
 int					sim_sleep(t_data *data, long ms);
-void				wait_tick(struct timespec *ts);
 void				swap(t_request *x, t_request *y);
+long				max(long a, long b);
 void				wakeup_coders(t_data *data);
 
-# endif
+#endif

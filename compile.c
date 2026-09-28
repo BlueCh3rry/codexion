@@ -12,7 +12,25 @@
 
 #include "codexion.h"
 
-
+void	take_dongles(t_c *coder)
+{
+	if (coder->left->id < coder->right->id)
+	{
+		pthread_mutex_lock(&coder->left->mutex);
+		coder->left->in_use = 1;
+		pthread_mutex_lock(&coder->right->mutex);
+		coder->right->in_use = 1;
+	}
+	else
+	{
+		pthread_mutex_lock(&coder->right->mutex);
+		coder->right->in_use = 1;
+		pthread_mutex_lock(&coder->left->mutex);
+		coder->left->in_use = 1;
+	}
+	log_state(coder->data, coder->id, "has taken a dongle");
+	log_state(coder->data, coder->id, "has taken a dongle");
+}
 
 static void	release_dongles(t_c *coder)
 {
@@ -54,23 +72,23 @@ static int	is_top(t_d *dongle, int id)
 	return (dongle->heap.size > 0 && dongle->heap.requests[0].id == id);
 }
 
-int coder_can_compile(t_c *coder)
+int	coder_can_compile(t_c *coder)
 {
-    long now;
+	long	now;
 
-    if (coder->left == coder->right)
-        return (0);
-    if (coder->left->in_use == 1 || coder->right->in_use == 1)
-        return (1);
-    now = elapsed_ms(coder->data);
+	if (coder->left == coder->right)
+		return (0);
+	if (coder->left->in_use == 1 || coder->right->in_use == 1)
+		return (1);
+	now = elapsed_ms(coder->data);
 	if (DEBUG == 1)
 	{
 		printf("NOW %ld\n", now);
 		printf("NOW-LL %ld\n", coder->left->available_at);
 		printf("NOW-RR %ld\n", coder->right->available_at);
 	}
-    if (now < coder->left->available_at || now < coder->right->available_at)
-        return (1);          // not time yet -> keep waiting
-    return (!(is_top(coder->left, coder->id) && is_top(coder->right, coder->id)));
-    // ready & top of both heaps -> 0 -> stop waiting
+	if (now < coder->left->available_at || now < coder->right->available_at)
+		return (1);
+	return (!(is_top(coder->left, coder->id)
+			&& is_top(coder->right, coder->id)));
 }

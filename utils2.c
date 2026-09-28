@@ -12,11 +12,6 @@
 
 #include "codexion.h"
 
-long	elapsed_ms(t_data *data)
-{
-	return (current_time_ms() - data->start_time);
-}
-
 /* [ADDED] Now it "Reject invalid inputs such as negative numbers,
 ** non-integers". atoi() silently accepted "12abc" and "" as 12 and 0.*/
 int	ft_atoi_safe(const char *s, long *out)
@@ -60,6 +55,15 @@ int	sim_sleep(t_data *data, long ms)
 	return (0);
 }
 
+void	single_coder(t_c *coder)
+{
+	pthread_mutex_lock(&coder->left->mutex);
+	log_state(coder->data, coder->id, "has taken a dongle");
+	while (!sim_sleep(coder->data, 1))
+		;
+	pthread_mutex_unlock(&coder->left->mutex);
+}
+
 void	swap(t_request *x, t_request *y)
 {
 	t_request	tmp;
@@ -67,4 +71,11 @@ void	swap(t_request *x, t_request *y)
 	tmp = *x;
 	*x = *y;
 	*y = tmp;
+}
+
+long	max(long a, long b)
+{
+	if (a > b)
+		return (a);
+	return (b);
 }

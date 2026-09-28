@@ -44,7 +44,7 @@ int	parse_args2(char **argv, t_data *data)
 	if (ft_atoi_safe(argv[7], &v) == -1)
 		return (printf("Error [7] invalid dongle cooldown\n"), -1);
 	data->dongle_cooldown = v;
-	if (!check_sched(argv[8]))
+	if (!(!strcmp(argv[8], "fifo") || !strcmp(argv[8], "edf")))
 		return (printf("Error [8] scheduler is neither fifo nor edf\n"), -1);
 	return (0);
 }

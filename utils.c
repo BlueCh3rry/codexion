@@ -12,6 +12,11 @@
 
 #include "codexion.h"
 
+long	elapsed_ms(t_data *data)
+{
+	return (current_time_ms() - data->start_time);
+}
+
 size_t	ft_strcpy(char *dst, const char *src)
 {
 	unsigned int	i;
@@ -26,11 +31,6 @@ size_t	ft_strcpy(char *dst, const char *src)
 	}
 	dst[i] = '\0';
 	return (j);
-}
-
-int	check_sched(char *s)
-{
-	return (!strcmp(s, "fifo") || !strcmp(s, "edf"));
 }
 
 long	current_time_ms(void)

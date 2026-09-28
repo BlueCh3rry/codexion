@@ -21,6 +21,8 @@
 # include <sys/time.h>
 # include <time.h>
 
+#define DEBUG 0
+
 typedef struct data	t_data;
 
 typedef struct request
@@ -54,6 +56,7 @@ typedef struct coder
 
 	int						queued;
 	int						completed_compiles;
+	int						already_registered;
 
 	long					request_time;
 	long					last_compile_start;
@@ -122,4 +125,4 @@ void				wait_tick(struct timespec *ts);
 void				swap(t_request *x, t_request *y);
 void				wakeup_coders(t_data *data);
 
-#endif
+# endif

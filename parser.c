@@ -83,9 +83,10 @@ void	init_coders(t_data *data)
 		nbr = (i + 1) % data->number_of_coders;
 		data->coders[i].right = &data->dongles[nbr];
 		data->coders[i].last_compile_start = 0;
-		data->coders[i].request_time = 0;
 		data->coders[i].queued = 0;
+		data->coders[i].already_registered = 0;
 		data->coders[i].completed_compiles = 0;
+		data->coders[i].request_time = 0;
 		data->coders[i].deadline = data->time_to_burnout;
 		data->coders[i].id = i + 1;
 		data->coders[i].data = data;

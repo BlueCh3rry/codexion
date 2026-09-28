@@ -60,20 +60,6 @@ int	sim_sleep(t_data *data, long ms)
 	return (0);
 }
 
-void	wait_tick(struct timespec *ts)
-{
-	struct timeval	tv;
-
-	gettimeofday(&tv, NULL);
-	ts->tv_sec = tv.tv_sec;
-	ts->tv_nsec = tv.tv_usec * 1000 + 1000000;
-	if (ts->tv_nsec >= 1000000000)
-	{
-		ts->tv_sec += 1;
-		ts->tv_nsec -= 1000000000;
-	}
-}
-
 void	swap(t_request *x, t_request *y)
 {
 	t_request	tmp;

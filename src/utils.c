@@ -17,22 +17,6 @@ long	elapsed_ms(t_data *data)
 	return (current_time_ms() - data->start_time);
 }
 
-size_t	ft_strcpy(char *dst, const char *src)
-{
-	unsigned int	i;
-	unsigned int	j;
-
-	i = 0;
-	j = strlen(src);
-	while (src[i] != '\0')
-	{
-		dst[i] = src[i];
-		i++;
-	}
-	dst[i] = '\0';
-	return (j);
-}
-
 long	current_time_ms(void)
 {
 	struct timeval	tv;

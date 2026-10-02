@@ -19,18 +19,20 @@ void	wakeup_coders(t_data *data)
 	pthread_mutex_unlock(&data->state_mutex);
 }
 
-/* burns out when now - last_compile >= burnout (use > if it fires early).
-** last_compile is 0 before the first compile, so it counts from the start. */
-static int	burnout_handle(t_data *data, int i, long last_compile)
+static int  burnout_handle(t_data *data, int i)
 {
-	if (elapsed_ms(data) - last_compile < data->time_to_burnout)
-		return (0);
-	pthread_mutex_lock(&data->state_mutex);
-	data->done = 1;
-	pthread_mutex_unlock(&data->state_mutex);
-	log_forced(data, data->coders[i].id, "burned out");
-	wakeup_coders(data);
-	return (1);
+    pthread_mutex_lock(&data->state_mutex);
+    if (elapsed_ms(data) - data->coders[i].last_compile_start
+        < data->time_to_burnout)
+    {
+        pthread_mutex_unlock(&data->state_mutex);
+        return (0);
+    }
+    data->done = 1;
+    pthread_mutex_unlock(&data->state_mutex);
+    log_forced(data, data->coders[i].id, "burned out");
+    wakeup_coders(data);
+    return (1);
 }
 
 static int	routine_primer(t_data *data, int *i, int *all_done)
@@ -76,7 +78,7 @@ void	*coder_monitor(void *arg)
 			< data->number_of_compiles_required)
 		{
 			all_done = 0;
-			if (burnout_handle(data, i, last_compile))
+			if (burnout_handle(data, i))
 				return (NULL);
 		}
 		if (++i == data->number_of_coders

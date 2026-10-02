@@ -12,14 +12,14 @@
 
 NAME = codexion
 
-SOURCES = utils.c \
-		  utils2.c \
-		  monitor.c \
-		  compile.c \
-		  coder_routine.c \
-		  parser.c \
-		  heap.c \
-		  main.c
+SOURCES = src/utils.c \
+		  src/utils2.c \
+		  src/monitor.c \
+		  src/compile.c \
+		  src/coder_routine.c \
+		  src/parser.c \
+		  src/heap.c \
+		  src/main.c
 
 OBJECTS = $(SOURCES:.c=.o)
 
@@ -38,10 +38,10 @@ run: $(NAME)
 	./$(NAME) 5 3000 200 200 200 5 400 fifo
 
 leak: $(NAME)
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(NAME) 5 500 0 0 0 1 20 edf
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(NAME) 5 3000 200 200 200 5 400 fifo
 
 helgrind: $(NAME)
-	valgrind --tool=helgrind -s ./$(NAME) 5 500 0 0 0 1 20 edf
+	valgrind --tool=helgrind -s ./$(NAME) 5 3000 200 200 200 5 400 fifo
 
 clean:
 	rm -f $(OBJECTS)

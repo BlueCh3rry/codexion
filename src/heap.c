@@ -61,15 +61,22 @@ void	add_request(t_heap *heap, int id, long metric)
 	heap->size += 1;
 }
 
-void	remove_request_top(t_heap *heap)
+void    remove_request_id(t_heap *heap, int id)
 {
-	if (!heap || !heap->size)
-		return ;
-	if (&heap->requests[0] != &heap->requests[heap->size - 1])
-		swap(&heap->requests[0], &heap->requests[heap->size - 1]);
-	heap->size -= 1;
-	heapify(heap->requests, 0, heap->size);
-	return ;
+    int i;
+
+    i = 0;
+    while (i < heap->size && heap->requests[i].id != id)
+        i++;
+    if (i == heap->size)
+        return ;
+    heap->size -= 1;
+    if (i != heap->size)
+    {
+        heap->requests[i] = heap->requests[heap->size];
+        heapify(heap->requests, i, heap->size);
+        bubble_up(heap->requests, i);
+    }
 }
 
 /* heaps are protected by state_mutex (held by the caller), not by the

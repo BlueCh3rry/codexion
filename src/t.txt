@@ -1,0 +1,390 @@
+YO i need 3 things on my program, after that i will give u code and a pdf:
+
+1. make it compile and work without burnout with ./codexion 5 3000 200 200 200 5 400 fifo (edf works fine)
+2. check if the burnout time is actually done correctly
+3. do not make coder compile twice if others hasnt compiled yet 
+4. optional: is it normal it compiles in ascending order ? if no then change it so the order is only the resqueted order not numerical id
+
+
+code (if an important function is missing tell me) :
+
+
+#include "codexion.h"
+
+void	wakeup_coders(t_data *data)
+{
+	pthread_mutex_lock(&data->state_mutex);
+	pthread_cond_broadcast(&data->cond_thread);
+	pthread_mutex_unlock(&data->state_mutex);
+}
+
+static int  burnout_handle(t_data *data, int i)
+{
+    pthread_mutex_lock(&data->state_mutex);
+    if (elapsed_ms(data) - data->coders[i].last_compile_start
+        < data->time_to_burnout)
+    {
+        pthread_mutex_unlock(&data->state_mutex);
+        return (0);
+    }
+    data->done = 1;
+    pthread_mutex_unlock(&data->state_mutex);
+    log_forced(data, data->coders[i].id, "burned out");
+    wakeup_coders(data);
+    return (1);
+}
+
+static int	routine_primer(t_data *data, int *i, int *all_done)
+{
+	if (*all_done)
+	{
+		pthread_mutex_lock(&data->state_mutex);
+		data->done = 1;
+		pthread_mutex_unlock(&data->state_mutex);
+		wakeup_coders(data);
+		return (1);
+	}
+	*i = 0;
+	*all_done = 1;
+	usleep(100);
+	return (0);
+}
+
+static int	read_coder(t_data *data, int i, long *last_compile)
+{
+	int	completed;
+
+	pthread_mutex_lock(&data->state_mutex);
+	completed = data->coders[i].completed_compiles;
+	*last_compile = data->coders[i].last_compile_start;
+	pthread_mutex_unlock(&data->state_mutex);
+	return (completed);
+}
+
+void	*coder_monitor(void *arg)
+{
+	t_data	*data;
+	int		all_done;
+	int		i;
+	long	last_compile;
+
+	data = (t_data *)arg;
+	i = 0;
+	all_done = 1;
+	while (1)
+	{
+		if (read_coder(data, i, &last_compile)
+			< data->number_of_compiles_required)
+		{
+			all_done = 0;
+			if (burnout_handle(data, i))
+				return (NULL);
+		}
+		if (++i == data->number_of_coders
+			&& routine_primer(data, &i, &all_done))
+			return (NULL);
+	}
+}
+
+#include "codexion.h"
+
+static void	bubble_up(t_request *requests, int i)
+{
+	int	parent_idx;
+
+	while (i > 0)
+	{
+		parent_idx = (i - 1) / 2;
+		if (requests[i].metric < requests[parent_idx].metric)
+			swap(&requests[parent_idx], &requests[i]);
+		else
+			break ;
+		i = parent_idx;
+	}
+}
+
+static void	heapify(t_request *requests, int parent, int size)
+{
+	int	left_child_idx;
+	int	right_child_idx;
+	int	least;
+
+	least = parent;
+	while (1)
+	{
+		left_child_idx = (parent * 2) + 1;
+		right_child_idx = (parent * 2) + 2;
+		if (left_child_idx < size && requests[left_child_idx].metric
+			< requests[parent].metric)
+			least = left_child_idx;
+		if (right_child_idx < size && requests[right_child_idx].metric
+			< requests[least].metric)
+			least = right_child_idx;
+		if (least == parent)
+			break ;
+		swap(&requests[least], &requests[parent]);
+		parent = least;
+	}
+}
+
+void	add_request(t_heap *heap, int id, long metric)
+{
+	if (!heap || (heap->size == 2))
+		return ;
+	heap->requests[heap->size].id = id;
+	heap->requests[heap->size].metric = metric;
+	bubble_up(heap->requests, heap->size);
+	heap->size += 1;
+}
+
+void    remove_request_id(t_heap *heap, int id)
+{
+    int i;
+
+    i = 0;
+    while (i < heap->size && heap->requests[i].id != id)
+        i++;
+    if (i == heap->size)
+        return ;
+    heap->size -= 1;
+    if (i != heap->size)
+    {
+        heap->requests[i] = heap->requests[heap->size];
+        heapify(heap->requests, i, heap->size);
+        bubble_up(heap->requests, i);
+    }
+}
+
+/* heaps are protected by state_mutex (held by the caller), not by the
+** dongle mutex, because the dongle mutex is held during a whole compile. */
+void	pre_register_heaps(t_d *first, t_d *second,
+	t_c *coder, long metric)
+{
+	add_request(&first->heap, coder->id, metric);
+	add_request(&second->heap, coder->id, metric);
+}
+
+#include "codexion.h"
+
+void    take_dongles(t_c *coder)
+{
+    if (coder->left->id < coder->right->id)
+    {
+        pthread_mutex_lock(&coder->left->mutex);
+        pthread_mutex_lock(&coder->right->mutex);
+    }
+    else
+    {
+        pthread_mutex_lock(&coder->right->mutex);
+        pthread_mutex_lock(&coder->left->mutex);
+    }
+    log_state(coder->data, coder->id, "has taken a dongle");
+    log_state(coder->data, coder->id, "has taken a dongle");
+}
+
+static void	release_dongles(t_c *coder)
+{
+	long	now;
+
+	pthread_mutex_unlock(&coder->left->mutex);
+	pthread_mutex_unlock(&coder->right->mutex);
+	pthread_mutex_lock(&coder->data->state_mutex);
+	now = elapsed_ms(coder->data);
+	coder->left->available_at = now + coder->data->dongle_cooldown;
+	coder->right->available_at = now + coder->data->dongle_cooldown;
+	if (DEBUG == 1)
+	{
+		printf("REELEaSE-LL %ld\n", coder->right->available_at);
+		printf("REELEaSE-RR %ld\n", coder->right->available_at);
+	}
+	coder->left->in_use = 0;
+	coder->right->in_use = 0;
+	pthread_cond_broadcast(&coder->data->cond_thread);
+	pthread_mutex_unlock(&coder->data->state_mutex);
+}
+
+void	compile(t_c *coder)
+{
+	if (DEBUG == 1)
+		printf("CcoooDDeerrr id %d \n", coder->id);
+	pthread_mutex_lock(&coder->data->state_mutex);
+	coder->last_compile_start = elapsed_ms(coder->data);
+	coder->deadline = coder->last_compile_start + coder->data->time_to_burnout;
+	pthread_mutex_unlock(&coder->data->state_mutex);
+	log_state(coder->data, coder->id, "is compiling");
+	sim_sleep(coder->data, coder->data->time_to_compile);
+	release_dongles(coder);
+}
+
+static int  ready(t_c *c, long now)
+{
+    return (!c->left->in_use && !c->right->in_use
+        && now >= c->left->available_at
+        && now >= c->right->available_at);
+}
+
+/* blocked only by a higher-priority neighbour that can run RIGHT NOW */
+static int  blocked_by(t_d *dongle, t_c *c, long now)
+{
+    t_c *other;
+
+    if (dongle->heap.size == 0 || dongle->heap.requests[0].id == c->id)
+        return (0);
+    other = &c->data->coders[dongle->heap.requests[0].id - 1];
+    return (ready(other, now));
+}
+
+int coder_can_compile(t_c *c)      /* 1 = must keep waiting */
+{
+    long    now;
+
+    if (c->left == c->right)
+        return (0);
+    now = elapsed_ms(c->data);
+    if (!ready(c, now))
+        return (1);
+    return (blocked_by(c->left, c, now) || blocked_by(c->right, c, now));
+}
+
+static int  started_is_min(t_data *d, t_c *c)
+{
+    int i;
+
+    i = 0;
+    while (i < d->number_of_coders)
+    {
+        if (d->coders[i].started < c->started)
+            return (0);
+        i++;
+    }
+    return (1);
+}
+
+void    wait_gate(t_c *c)
+{
+    while (!c->data->done && !started_is_min(c->data, c))
+        pthread_cond_wait(&c->data->cond_thread, &c->data->state_mutex);
+}
+
+
+// static void count_compile(t_c *coder)
+// {
+//     t_data  *d;
+//     int     i;
+//     int     all;
+
+//     d = coder->data;
+//     pthread_mutex_lock(&d->state_mutex);
+//     coder->completed_compiles++;
+//     all = 1;
+//     i = 0;
+//     while (i < d->number_of_coders)
+//     {
+//         if (d->coders[i].completed_compiles
+//             < d->number_of_compiles_required)
+//             all = 0;
+//         i++;
+//     }
+//     if (all)
+//         d->done = 1;
+//     pthread_cond_broadcast(&d->cond_thread);
+//     pthread_mutex_unlock(&d->state_mutex);
+// }
+
+#include "codexion.h"
+
+static void request_slot(t_c *coder)
+{
+    t_data  *d;
+    long    metric;
+
+    d = coder->data;
+    if (d->edf)
+        metric = coder->deadline * (d->number_of_coders + 1) + coder->id;
+    else
+        metric = d->next_ticket++;
+    pre_register_heaps(coder->left, coder->right, coder, metric);
+    pthread_cond_broadcast(&d->cond_thread);
+}
+
+static void wait_for_turn(t_c *coder)
+{
+    t_data  *d;
+    long    delta;
+
+    d = coder->data;
+    while (!d->done && coder_can_compile(coder) == 1)
+    {
+        delta = max(coder->left->available_at, coder->right->available_at)
+            - elapsed_ms(d);
+        if (delta > 0)
+        {
+            pthread_mutex_unlock(&d->state_mutex);
+            usleep(delta);
+            pthread_mutex_lock(&d->state_mutex);
+        }
+        else
+            pthread_cond_wait(&d->cond_thread, &d->state_mutex);
+    }
+}
+
+static int  acquire_turn(t_c *coder)
+{
+    t_data  *d;
+
+    d = coder->data;
+    pthread_mutex_lock(&d->state_mutex);
+    wait_gate(coder);
+    if (!d->done)
+        request_slot(coder);
+    if (!d->done)
+        wait_for_turn(coder);
+    if (d->done)
+        return (pthread_mutex_unlock(&d->state_mutex), 0);
+    remove_request_id(&coder->left->heap, coder->id);
+    remove_request_id(&coder->right->heap, coder->id);
+    coder->left->in_use = 1;
+    coder->right->in_use = 1;
+    coder->started++;
+    coder->last_compile_start = elapsed_ms(d);
+    coder->deadline = coder->last_compile_start + d->time_to_burnout;
+    pthread_cond_broadcast(&d->cond_thread);
+    pthread_mutex_unlock(&d->state_mutex);
+    take_dongles(coder);
+    return (1);
+}
+
+static int	debug_and_refactor(t_c *coder)
+{
+	log_state(coder->data, coder->id, "is debugging");
+	if (sim_sleep(coder->data, coder->data->time_to_debug))
+		return (1);
+	log_state(coder->data, coder->id, "is refactoring");
+	if (sim_sleep(coder->data, coder->data->time_to_refactor))
+		return (1);
+	pthread_mutex_lock(&coder->data->state_mutex);
+	coder->completed_compiles++;
+	pthread_mutex_unlock(&coder->data->state_mutex);
+	return (0);
+}
+
+void	*coder_routine(void *arg)
+{
+	t_c	*coder;
+	int	j;
+
+	coder = (t_c *)arg;
+	if (coder->left == coder->right)
+		return (single_coder(coder), NULL);
+	j = 0;
+	while (j < coder->data->number_of_compiles_required)
+	{
+		if (!acquire_turn(coder))
+			return (NULL);
+		compile(coder);
+		if (debug_and_refactor(coder))
+			return (NULL);
+		j++;
+	}
+	return (NULL);
+}

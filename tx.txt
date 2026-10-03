@@ -1,0 +1,431 @@
+==============================================================================
+ CODEXION - HOW THE SCHEDULER WORKS
+==============================================================================
+
+Contents
+  1. The problem in one paragraph
+  2. Reading the command line
+  3. Data structures (dongles, heaps, requests)
+  4. How a min-heap works (with trees)
+  5. Function by function: heap.c
+  6. Function by function: coder_routine.c
+  7. Run example: ./codexion 5 3000 200 200 200 5 400 fifo
+  8. Run example: ./codexion 5 3000 200 200 200 5 400 edf
+  9. FIFO vs EDF in one table
+ 10. Notes / things worth checking
+
+
+==============================================================================
+ 1. THE PROBLEM IN ONE PARAGRAPH
+==============================================================================
+
+N coders sit in a circle. Between each pair of neighbours lies one dongle,
+so there are N coders and N dongles. To compile, a coder needs BOTH of its
+dongles (left and right). After compiling, the coder debugs, then
+refactors, then asks to compile again. A dongle that was just used needs a
+cooldown before anyone can take it again. If a coder waits longer than
+time_to_burnout since its last compile start, it burns out and the
+simulation stops.
+
+Because neighbours fight over the same dongle, we need a rule for WHO goes
+first. That rule is the scheduler: fifo or edf. The heap is the tool that
+makes the rule cheap to apply.
+
+        (assumed ring layout)
+
+              coder 1
+         D5  /       \  D1
+            /         \
+       coder 5       coder 2
+            \         /
+         D4  \       /  D2
+           coder 4--coder 3
+                 D3
+
+  Each dongle (D) is shared by exactly two coders. This is why a dongle's
+  heap never needs to hold more than 2 requests (see add_request).
+
+
+==============================================================================
+ 2. READING THE COMMAND LINE
+==============================================================================
+
+  ./codexion 5 3000 200 200 200 5 400 fifo
+             | |    |   |   |  | |   |
+             | |    |   |   |  | |   +-- scheduler: fifo | edf
+             | |    |   |   |  | +------ dongle_cooldown (ms)
+             | |    |   |   |  +-------- number_of_compiles_required
+             | |    |   |   +----------- time_to_refactor (ms)
+             | |    |   +--------------- time_to_debug (ms)
+             | |    +------------------- time_to_compile (ms)
+             | +------------------------ time_to_burnout (ms)
+             +-------------------------- number_of_coders
+
+So: 5 coders, burnout after 3000 ms without starting a compile, compile /
+debug / refactor each take 200 ms, every coder must compile 5 times, a
+dongle is locked for 400 ms after use, and ties are decided FIFO.
+
+From your log you can see these numbers at work:
+
+  t=0    coder 1 starts compiling
+  t=200  coder 1 debugging         (compile = 200)
+  t=400  coder 1 refactoring       (debug = 200)
+  t=600  next coders get the dongle (compile ended at 200, +400 cooldown)
+
+
+==============================================================================
+ 3. DATA STRUCTURES
+==============================================================================
+
+ t_request   one entry in a heap
+               id      which coder asked
+               metric  the priority number. SMALLER = SERVED FIRST
+
+ t_heap      array of t_request + size. Used as a binary min-heap.
+             Each DONGLE owns one heap = its waiting line.
+
+ t_d         a dongle: its heap, available_at (time it is free again),
+             in_use flag.
+
+ t_c         a coder: id, left and right dongle, started (how many compiles
+             begun), last_compile_start, deadline.
+
+ t_data      shared state: state_mutex, cond_thread (condition variable),
+             done flag, next_ticket counter, time parameters, edf flag.
+
+Everything shared is protected by ONE mutex (state_mutex). Threads sleep on
+cond_thread and are woken with pthread_cond_broadcast whenever something
+changes (a request registered, dongles taken, etc).
+
+
+==============================================================================
+ 4. HOW A MIN-HEAP WORKS
+==============================================================================
+
+A heap is a binary tree stored in a plain array. For the node at index i:
+
+    parent      = (i - 1) / 2
+    left child  = 2*i + 1
+    right child = 2*i + 2
+
+Rule: every parent has a metric <= its children. So the ROOT (index 0) is
+always the smallest metric = the next coder to serve.
+
+Array  [ 1 | 3 | 8 | 5 ]   is this tree:
+
+              1            index 0
+             / \
+            3   8          index 1, 2
+           /
+          5                index 3
+
+ ---- INSERT (add_request + bubble_up) ----------------------------------
+
+ Insert metric 1 into  [3 | 5 | 8]:
+
+ step 1: put it at the end         step 2: 1 < parent 5, swap
+ (index 3, child of index 1)
+
+        3                                 3
+       / \                               / \
+      5   8                             1   8
+     /                                 /
+    1                                 5
+
+ step 3: 1 < parent 3, swap         done: 1 is the root
+                                   
+        1
+       / \
+      3   8
+     /
+    5
+
+ Cost: at most the height of the tree, O(log n).
+
+ ---- REMOVE (remove_request_id + heapify) ------------------------------
+
+ Remove the entry with metric 1 (the root) from the tree above:
+
+ step 1: copy the LAST element       step 2: heapify (sift down):
+ (5) over the removed slot and       5 > child 3, swap with the
+ shrink size by 1                    SMALLER child
+
+        5                                 3
+       / \                               / \
+      3   8                             5   8
+
+ done: 3 is the new root.
+
+ In the code, after replacing slot i it calls BOTH heapify(i) and
+ bubble_up(i), because the moved element may need to go down OR up
+ depending on where it came from (removing from the middle of a heap).
+
+
+==============================================================================
+ 5. FUNCTION BY FUNCTION: heap.c
+==============================================================================
+
+ bubble_up(requests, i)
+ ----------------------
+   Moves the element at index i UP while it is smaller than its parent.
+   Used after inserting at the end of the array.
+
+        i
+        |   metric < parent's ?  yes -> swap, i = parent, repeat
+        v                         no  -> stop
+
+ heapify(requests, parent, size)
+ -------------------------------
+   Moves the element at index `parent` DOWN. Each loop:
+     - look at left and right child
+     - pick the smallest of (parent, left, right) -> `least`
+     - if least is the parent, stop
+     - otherwise swap with the smaller child and continue from there
+
+          parent
+          /    \
+       left   right      swap with whichever is smaller (if < parent)
+
+ add_request(heap, id, metric)
+ -----------------------------
+   - If heap is NULL or already has 2 entries: do nothing. Two is the
+     maximum because only two coders ever touch the same dongle.
+   - Writes {id, metric} at index `size`, calls bubble_up, size += 1.
+
+ remove_request_id(heap, id)
+ ---------------------------
+   - Linear search for the entry with that coder id (the heap is tiny, so
+     searching is fine).
+   - Not found -> return.
+   - Otherwise: size -= 1, copy the last element into the hole, then
+     heapify + bubble_up to repair the order.
+
+ pre_register_heaps(first, second, coder, metric)
+ ------------------------------------------------
+   Registers the SAME request (same coder, same metric) in the heap of
+   BOTH of the coder's dongles. The coder is now "standing in line" at its
+   left dongle and its right dongle at the same time.
+
+   Example: coder 2 asks with metric 2:
+
+        dongle D1 heap            dongle D2 heap
+          (id2,m=2)                 (id2,m=2)
+
+
+==============================================================================
+ 6. FUNCTION BY FUNCTION: coder_routine.c
+==============================================================================
+
+ coder_routine(arg)         the thread body of one coder
+ -------------------
+   - If left == right the coder only has ONE dongle (the 1-coder case):
+     it can never compile, so single_coder() handles it and the thread ends.
+   - Otherwise repeat number_of_compiles_required times:
+
+         acquire_turn()       wait until it is my turn, take the dongles
+         compile()            compile for time_to_compile
+         debug_and_refactor() sleep debug, then sleep refactor
+
+   - Any step returning "stop" (simulation done / burnout) ends the thread.
+
+ acquire_turn(coder)        the heart of the scheduler
+ -------------------
+   Everything up to take_dongles runs with state_mutex LOCKED.
+
+     1. lock state_mutex
+     2. wait_gate(coder)          (start gate, not shown in your paste)
+     3. request_slot(coder)       get in line on both dongles
+     4. wait_for_turn(coder)      sleep until it is really my turn
+     5. if done: unlock, return 0
+     6. remove_request_id() on both dongles   -> leave the lines
+     7. left->in_use = right->in_use = 1      -> dongles are mine
+     8. started++, last_compile_start = now
+        deadline = now + time_to_burnout      -> new burnout deadline
+     9. broadcast, unlock
+    10. take_dongles(coder)       (prints "has taken a dongle" x2)
+
+   Note step 8: the deadline is recomputed at each compile start. This is
+   exactly the value EDF uses next time the coder requests.
+
+ request_slot(coder)
+ -------------------
+   Computes the metric, then pre_register_heaps(), then broadcasts.
+
+     edf  : metric = deadline * (number_of_coders + 1) + coder->id
+     fifo : metric = next_ticket++
+
+   FIFO: tickets 1, 2, 3 ... so the oldest request is the smallest.
+   EDF : earliest deadline = smallest metric. Multiplying by (N+1) and
+         adding the id makes every metric unique: two coders with the same
+         deadline are separated by id, and the id part (1..N) can never
+         spill into the deadline part (steps of N+1).
+
+ wait_for_turn(coder)
+ --------------------
+   Loops while (not done) AND coder_can_compile(coder) == 1, i.e. while the
+   coder must still wait (from its use here, 1 means "not yet": I'm not the
+   top request on both dongles, or a dongle is in use / cooling down).
+
+     delta = (when both dongles become free) - (now)
+       delta > 0 : unlock, usleep(delta), lock   (timed wait for cooldown)
+       otherwise : pthread_cond_wait             (wait to be woken by
+                                                  someone's broadcast)
+
+   After each wakeup it re-checks the condition. This is the standard
+   "while + condition variable" pattern: never trust a single wakeup.
+
+ debug_and_refactor(coder)
+ -------------------------
+   Logs "is debugging", sim_sleep(time_to_debug), logs "is refactoring",
+   sim_sleep(time_to_refactor). Returns 1 if the simulation ended during
+   the sleep.
+
+
+==============================================================================
+ 7. RUN EXAMPLE: ./codexion 5 3000 200 200 200 5 400 fifo
+==============================================================================
+
+ Parameters: 5 coders, compile/debug/refactor 200 ms, cooldown 400 ms.
+ Metric = ticket number in order of request. Smaller = first.
+
+ --- t=0: everybody asks ---------------------------------------------
+
+   Threads start one after another. Each calls request_slot():
+
+     coder 1 -> metric 1
+     coder 2 -> metric 2
+     coder 3 -> metric 3
+     coder 4 -> metric 4
+     coder 5 -> metric 5
+
+   Coder 1 is granted immediately (it registered first and nobody else
+   was in line yet). Coder 3 is granted too: its dongles are free and no
+   neighbour with a better claim blocks it. Coders 1 and 3 do not share a
+   dongle, so both can compile at once.  (Max 2 at a time with 5 coders:
+   each compiling coder uses 2 of the 5 dongles.)
+
+   The heaps hold the waiting neighbours. Example, dongle between
+   coder 2 and coder 3 before coder 3 is granted:
+
+              (id2, m=2)
+              /
+         (id3, m=3)          root = coder 2 has priority on this dongle
+
+   But coder 2's OTHER dongle is taken by coder 1. So coder 2 cannot
+   compile and coder_can_compile lets coder 3 through, because leaving the
+   dongle idle would waste time. (This is why your [GRANT] debug print
+   sometimes shows a "top" that is not the granted coder.)
+
+ --- timeline of the first seconds -----------------------------------
+
+   t=0    coders 1,3 compile            others waiting (heaps filled)
+   t=200  1,3 debug
+   t=400  1,3 refactor
+   t=600  dongles free again (200 + 400 cooldown)
+          coders 2 and 4 are granted (best tickets among the waiting)
+   t=800  2,4 debug ...
+   t=1200 coder 5 is granted, coder 2 re-requests with a NEW ticket
+          (6, 7 ...) which puts it at the BACK of the line
+
+ --- why FIFO is fair ------------------------------------------------
+
+   Every new request gets a larger ticket than everything already waiting,
+   so nobody can be overtaken forever. Cost: FIFO ignores deadlines. A
+   coder close to burnout still waits behind everyone who asked earlier.
+
+
+==============================================================================
+ 8. RUN EXAMPLE: ./codexion 5 3000 200 200 200 5 400 edf
+==============================================================================
+
+ Same parameters, only the metric changes:
+
+     metric = deadline * (5 + 1) + id  =  deadline * 6 + id
+
+ deadline = (last compile start) + 3000. EDF = Earliest Deadline First: the
+ coder closest to burning out goes first.
+
+ --- first round -----------------------------------------------------
+
+   Assuming every coder starts with deadline = 3000 (time_to_burnout):
+
+     coder 1 -> 3000*6 + 1 = 18001
+     coder 2 -> 3000*6 + 2 = 18002
+     coder 3 -> 3000*6 + 3 = 18003
+     coder 4 -> 3000*6 + 4 = 18004
+     coder 5 -> 3000*6 + 5 = 18005
+
+   All deadlines are equal, so the "+ id" tie-break decides. The first
+   round looks like FIFO by id. (Which coders actually start at t=0 still
+   depends on thread start order, as in the fifo run.)
+
+ --- after the first compiles ---------------------------------------
+
+   Each coder gets a new deadline when it STARTS compiling:
+
+     coder 1 starts t=0    -> deadline 3000
+     coder 3 starts t=0    -> deadline 3000
+     coder 2 starts t=600  -> deadline 3600
+     coder 4 starts t=600  -> deadline 3600
+     coder 5 starts t=1200 -> deadline 4200
+
+   When they ask again, the one who compiled LONGEST AGO has the smallest
+   deadline, so it wins. Example: coders 3 and 2 compete for one dongle,
+   with deadlines 3000 (coder 3) and 3600 (coder 2):
+
+        coder 3 -> 3000*6 + 3 = 18003
+        coder 2 -> 3600*6 + 2 = 21602
+
+                (id3, m=18003)          root: coder 3 wins
+                /
+        (id2, m=21602)
+
+   In FIFO the winner would be whoever asked first. In EDF it is whoever
+   is closest to burnout, even if they asked later.
+
+ --- why EDF helps ---------------------------------------------------
+
+   It minimizes the chance that somebody burns out, because the most
+   endangered coder is always served first. With tight burnout values EDF
+   survives configurations where FIFO can lose a coder.
+
+
+==============================================================================
+ 9. FIFO VS EDF IN ONE TABLE
+==============================================================================
+
+                      FIFO                      EDF
+   metric         next_ticket++            deadline*(N+1) + id
+   winner         asked first              closest to burnout
+   tie-break      ticket is unique         id (built into the metric)
+   starvation     none                     none if deadlines are feasible
+   uses time?     no                       yes (last_compile_start)
+   heap code      same                     same
+
+ The heap and every function in heap.c are IDENTICAL for both policies.
+ Only request_slot decides what "smaller" means.
+
+
+==============================================================================
+ 10. NOTES / THINGS WORTH CHECKING
+==============================================================================
+
+ * usleep(delta): delta is in milliseconds (it comes from elapsed_ms) but
+   usleep takes MICROSECONDS. It should be usleep(delta * 1000).
+
+ * add_request refuses a 3rd entry (size == 2). That is correct as long as
+   each dongle is only shared by two coders. Keep it if N >= 2; with
+   N == 1 the single coder shares a dongle with itself.
+
+ * Startup race: the first grants at t=0 depend on thread start order,
+   because the heap only orders requests that already exist. Letting every
+   coder register before anyone compiles (a small barrier) would make the
+   first round deterministic for any scheduler.
+
+ * remove_request_id calls both heapify and bubble_up. Both are needed:
+   the element moved from the end can be bigger OR smaller than its new
+   neighbours.
+
+==============================================================================
+ END
+==============================================================================

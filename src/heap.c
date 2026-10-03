@@ -61,26 +61,24 @@ void	add_request(t_heap *heap, int id, long metric)
 	heap->size += 1;
 }
 
-void    remove_request_id(t_heap *heap, int id)
+void	remove_request_id(t_heap *heap, int id)
 {
-    int i;
+	int	i;
 
-    i = 0;
-    while (i < heap->size && heap->requests[i].id != id)
-        i++;
-    if (i == heap->size)
-        return ;
-    heap->size -= 1;
-    if (i != heap->size)
-    {
-        heap->requests[i] = heap->requests[heap->size];
-        heapify(heap->requests, i, heap->size);
-        bubble_up(heap->requests, i);
-    }
+	i = 0;
+	while (i < heap->size && heap->requests[i].id != id)
+		i++;
+	if (i == heap->size)
+		return ;
+	heap->size -= 1;
+	if (i != heap->size)
+	{
+		heap->requests[i] = heap->requests[heap->size];
+		heapify(heap->requests, i, heap->size);
+		bubble_up(heap->requests, i);
+	}
 }
 
-/* heaps are protected by state_mutex (held by the caller), not by the
-** dongle mutex, because the dongle mutex is held during a whole compile. */
 void	pre_register_heaps(t_d *first, t_d *second,
 	t_c *coder, long metric)
 {

@@ -12,20 +12,20 @@
 
 #include "codexion.h"
 
-void    take_dongles(t_c *coder)
+void	take_dongles(t_c *coder)
 {
-    if (coder->left->id < coder->right->id)
-    {
-        pthread_mutex_lock(&coder->left->mutex);
-        pthread_mutex_lock(&coder->right->mutex);
-    }
-    else
-    {
-        pthread_mutex_lock(&coder->right->mutex);
-        pthread_mutex_lock(&coder->left->mutex);
-    }
-    log_state(coder->data, coder->id, "has taken a dongle");
-    log_state(coder->data, coder->id, "has taken a dongle");
+	if (coder->left->id < coder->right->id)
+	{
+		pthread_mutex_lock(&coder->left->mutex);
+		pthread_mutex_lock(&coder->right->mutex);
+	}
+	else
+	{
+		pthread_mutex_lock(&coder->right->mutex);
+		pthread_mutex_lock(&coder->left->mutex);
+	}
+	log_state(coder->data, coder->id, "has taken a dongle");
+	log_state(coder->data, coder->id, "has taken a dongle");
 }
 
 static void	release_dongles(t_c *coder)
@@ -38,11 +38,6 @@ static void	release_dongles(t_c *coder)
 	now = elapsed_ms(coder->data);
 	coder->left->available_at = now + coder->data->dongle_cooldown;
 	coder->right->available_at = now + coder->data->dongle_cooldown;
-	if (DEBUG == 1)
-	{
-		printf("REELEaSE-LL %ld\n", coder->right->available_at);
-		printf("REELEaSE-RR %ld\n", coder->right->available_at);
-	}
 	coder->left->in_use = 0;
 	coder->right->in_use = 0;
 	pthread_cond_broadcast(&coder->data->cond_thread);
@@ -68,8 +63,6 @@ int	check_all_compiled(t_data *d)
 
 void	compile(t_c *coder)
 {
-	if (DEBUG == 1)
-		printf("CcoooDDeerrr id %d \n", coder->id);
 	pthread_mutex_lock(&coder->data->state_mutex);
 	coder->last_compile_start = elapsed_ms(coder->data);
 	coder->deadline = coder->last_compile_start + coder->data->time_to_burnout;

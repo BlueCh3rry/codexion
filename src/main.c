@@ -77,7 +77,6 @@ static void	cleanup(t_data *data)
 	pthread_cond_destroy(&data->cond_thread);
 	pthread_mutex_destroy(&data->log_mutex);
 	pthread_mutex_destroy(&data->state_mutex);
-	printf("END\n");
 	free(data->coders);
 	free(data->dongles);
 }

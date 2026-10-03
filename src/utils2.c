@@ -12,8 +12,6 @@
 
 #include "codexion.h"
 
-/* [ADDED] Now it "Reject invalid inputs such as negative numbers,
-** non-integers". atoi() silently accepted "12abc" and "" as 12 and 0.*/
 int	ft_atoi_safe(const char *s, long *out)
 {
 	long	res;

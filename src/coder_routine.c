@@ -26,6 +26,21 @@ static void request_slot(t_c *coder)
     pthread_cond_broadcast(&d->cond_thread);
 }
 
+// static void	wait_ms(t_data *d, long delta_ms)
+// {
+// 	struct timespec	ts;
+
+// 	clock_gettime(CLOCK_REALTIME, &ts);
+// 	ts.tv_sec += delta_ms / 1000;
+// 	ts.tv_nsec += (delta_ms % 1000) * 1000000L;
+// 	if (ts.tv_nsec >= 1000000000L)
+// 	{
+// 		ts.tv_sec += 1;
+// 		ts.tv_nsec -= 1000000000L;
+// 	}
+// 	pthread_cond_timedwait(&d->cond_thread, &d->state_mutex, &ts);
+// }
+
 static void wait_for_turn(t_c *coder)
 {
     t_data  *d;
@@ -41,6 +56,7 @@ static void wait_for_turn(t_c *coder)
             pthread_mutex_unlock(&d->state_mutex);
             usleep(delta);
             pthread_mutex_lock(&d->state_mutex);
+            // wait_ms(d, delta);
         }
         else
             pthread_cond_wait(&d->cond_thread, &d->state_mutex);
@@ -81,9 +97,6 @@ static int	debug_and_refactor(t_c *coder)
 	log_state(coder->data, coder->id, "is refactoring");
 	if (sim_sleep(coder->data, coder->data->time_to_refactor))
 		return (1);
-	// pthread_mutex_lock(&coder->data->state_mutex);
-	// coder->completed_compiles++;
-	// pthread_mutex_unlock(&coder->data->state_mutex);
 	return (0);
 }
 

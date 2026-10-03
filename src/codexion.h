@@ -106,7 +106,6 @@ void                wait_gate(t_c *coder);
 void                take_dongles(t_c *coder);
 
 void                add_request(t_heap *heap, int id, long metric);
-void                remove_request_top(t_heap *heap);
 void                remove_request_id(t_heap *heap, int id);
 void                pre_register_heaps(t_d *first, t_d *second,
                         t_c *coder, long metric);
@@ -120,13 +119,11 @@ void                init_coders(t_data *data);
 void                single_coder(t_c *coder);
 void                log_state(t_data *data, int id, char *msg);
 void                log_forced(t_data *data, int id, char *msg);
-void                timed_wait(t_data *d, long ms);
 int                 ft_atoi_safe(const char *s, long *out);
 long                current_time_ms(void);
 long                elapsed_ms(t_data *data);
 int                 sim_sleep(t_data *data, long ms);
 void                swap(t_request *x, t_request *y);
 long                max(long a, long b);
-void                wakeup_coders(t_data *data);
 
 #endif

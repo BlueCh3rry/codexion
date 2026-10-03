@@ -17,6 +17,7 @@ SOURCES = src/utils.c \
 		  src/monitor.c \
 		  src/compile.c \
 		  src/coder_routine.c \
+		  src/coder_routine2.c \
 		  src/parser.c \
 		  src/heap.c \
 		  src/main.c
@@ -35,7 +36,7 @@ $(NAME): $(OBJECTS)
 	$(CC) $(CFLAGS) $(OBJECTS) -o $(NAME)
 
 run: $(NAME)
-	./$(NAME) 5 3000 200 200 200 5 400 fifo
+	./$(NAME) 5 3000 200 200 200 5 400 edf
 
 leak: $(NAME)
 	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(NAME) 5 3000 200 200 200 5 400 fifo

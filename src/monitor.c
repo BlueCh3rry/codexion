@@ -12,77 +12,42 @@
 
 #include "codexion.h"
 
-void	wakeup_coders(t_data *data)
+static int	check_coder(t_data *d, int i, int *pending)
 {
-	pthread_mutex_lock(&data->state_mutex);
-	pthread_cond_broadcast(&data->cond_thread);
-	pthread_mutex_unlock(&data->state_mutex);
-}
-
-static int  burnout_handle(t_data *data, int i)
-{
-    pthread_mutex_lock(&data->state_mutex);
-    if (elapsed_ms(data) - data->coders[i].last_compile_start
-        < data->time_to_burnout)
-    {
-        pthread_mutex_unlock(&data->state_mutex);
-        return (0);
-    }
-    data->done = 1;
-    pthread_mutex_unlock(&data->state_mutex);
-    log_forced(data, data->coders[i].id, "burned out");
-    wakeup_coders(data);
-    return (1);
-}
-
-static int	routine_primer(t_data *data, int *i, int *all_done)
-{
-	if (*all_done)
+	pthread_mutex_lock(&d->state_mutex);
+	if (d->coders[i].completed_compiles < d->number_of_compiles_required)
 	{
-		pthread_mutex_lock(&data->state_mutex);
-		data->done = 1;
-		pthread_mutex_unlock(&data->state_mutex);
-		wakeup_coders(data);
-		return (1);
+		*pending = 1;
+		if (elapsed_ms(d) - d->coders[i].last_compile_start
+			>= d->time_to_burnout)
+		{
+			d->done = 1;
+			pthread_cond_broadcast(&d->cond_thread);
+			pthread_mutex_unlock(&d->state_mutex);
+			log_forced(d, d->coders[i].id, "burned out");
+			return (1);
+		}
 	}
-	*i = 0;
-	*all_done = 1;
-	usleep(100);
+	pthread_mutex_unlock(&d->state_mutex);
 	return (0);
-}
-
-static int	read_coder(t_data *data, int i, long *last_compile)
-{
-	int	completed;
-
-	pthread_mutex_lock(&data->state_mutex);
-	completed = data->coders[i].completed_compiles;
-	*last_compile = data->coders[i].last_compile_start;
-	pthread_mutex_unlock(&data->state_mutex);
-	return (completed);
 }
 
 void	*coder_monitor(void *arg)
 {
-	t_data	*data;
-	int		all_done;
+	t_data	*d;
 	int		i;
-	long	last_compile;
+	int		pending;
 
-	data = (t_data *)arg;
-	i = 0;
-	all_done = 1;
+	d = (t_data *)arg;
 	while (1)
 	{
-		if (read_coder(data, i, &last_compile)
-			< data->number_of_compiles_required)
-		{
-			all_done = 0;
-			if (burnout_handle(data, i))
+		i = 0;
+		pending = 0;
+		while (i < d->number_of_coders)
+			if (check_coder(d, i++, &pending))
 				return (NULL);
-		}
-		if (++i == data->number_of_coders
-			&& routine_primer(data, &i, &all_done))
+		if (!pending)
 			return (NULL);
+		usleep(100);
 	}
 }

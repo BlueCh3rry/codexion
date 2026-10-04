@@ -26,12 +26,12 @@ static void	request_slot(t_c *coder)
 	fprintf(stderr, "[REQ]   t=%ld coder %d metric %ld\n", elapsed_ms(d), coder->id, metric);
 	pthread_cond_broadcast(&d->cond_thread);
 	if (coder->started == 0)
-    {
-        d->first_reqs++;
-        pthread_cond_broadcast(&d->cond_thread);
-        while (!d->done && d->first_reqs < d->number_of_coders)
-            pthread_cond_wait(&d->cond_thread, &d->state_mutex);
-    }
+	{
+		d->first_reqs++;
+		pthread_cond_broadcast(&d->cond_thread);
+		while (!d->done && d->first_reqs < d->number_of_coders)
+			pthread_cond_wait(&d->cond_thread, &d->state_mutex);
+	}
 }
 
 static void	wait_for_turn(t_c *coder)
